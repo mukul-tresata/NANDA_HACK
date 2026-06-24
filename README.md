@@ -91,4 +91,3 @@ ceo_delta/
 cli.py             command-line entry point
 tests/test_core.py offline tests for the loop + 4 limitations
 ```
-# NANDA_HACK

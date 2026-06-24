@@ -1,0 +1,4 @@
+# Core runtime has ZERO third-party dependencies — stdlib only.
+# (urllib for the vLLM OpenAI-compatible API, hashlib for embeddings.)
+# pytest is only needed to run the test suite.
+pytest>=7.0
