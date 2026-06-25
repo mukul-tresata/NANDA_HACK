@@ -28,6 +28,7 @@ from .kernel import Kernel
 from .llm import LLMClient
 from .reflection import Reflection, ReflectionLog, should_reflect
 from .research import Brief, Research, StructuredBrief
+from .runlog import RunLogger
 from .schemas import AgentRegistry, DAG, ExecutionTrace
 from . import bootstrap
 
@@ -47,7 +48,8 @@ class RunResult:
 
 
 class Orchestrator:
-    def __init__(self, cfg: Config | None = None, workdir: str = ".ceo_delta"):
+    def __init__(self, cfg: Config | None = None, workdir: str = ".ceo_delta",
+                 run_log_path: str | None = None):
         self.cfg = cfg or DEFAULT
         self.llm = LLMClient(self.cfg)
         self.ceo_hb = Handbook("ceo", self.cfg, path=f"{workdir}/ceo_handbook.json")
@@ -55,6 +57,7 @@ class Orchestrator:
         if self.cfg.seed_handbook:
             bootstrap.ensure_seeded(self.ceo_hb)
             bootstrap.ensure_seeded(self.research_hb)
+        self.run_logger = RunLogger(run_log_path or f"{workdir}/runs.jsonl")
 
         # shared registry — CEO resolves from it, Kernel reads it, Delta writes to it
         self.registry = AgentRegistry(self.cfg)
@@ -69,8 +72,10 @@ class Orchestrator:
     # -- standard mode --------------------------------------------------------
 
     def run(self, task: str, *, auto_clarify: bool = True,
-            user_satisfaction: Optional[float] = None) -> RunResult:
+            user_satisfaction: Optional[float] = None,
+            task_label: str = "") -> RunResult:
 
+        self.llm.reset_call_log()
         clarification = None
         needs, sim = self.ceo.needs_clarification(task)
         if needs and not auto_clarify:
@@ -120,12 +125,19 @@ class Orchestrator:
             refl = self.reflection.run(self.run_count)
             self._persist()
 
-        return RunResult(
+        result = RunResult(
             task=task, answer=answer, dag=dag,
             structured_brief=structured_brief, brief=brief,
             replanned=replanned, trace=trace, report=report,
             clarification=clarification, reflection=refl,
         )
+        result._run_index = self.run_count
+        result._task_label = task_label
+
+        llm_calls = self.llm.flush_call_log()
+        self.run_logger.write(result, llm_calls)
+
+        return result
 
     # -- meta / feedback mode -------------------------------------------------
 

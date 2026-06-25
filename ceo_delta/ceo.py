@@ -105,7 +105,7 @@ class CEO:
         data = self.llm.chat_json([
             {"role": "system", "content": _SYSTEM},
             {"role": "user", "content": prompt},
-        ])
+        ], tag="ceo.replan" if getattr(self, "_in_replan", False) else "ceo.plan")
         dag = self._build_dag(
             task, task_emb, data, exploratory,
             priors_used=self._priors_id(task_emb),
@@ -116,10 +116,14 @@ class CEO:
 
     def replan(self, task: str, brief_summary: str,
                run_index: int = 0, task_class: str = "reasoning") -> DAG:
-        enriched = f"{task}\n\n[research brief]: {brief_summary}"
-        dag = self.plan(enriched, run_index=run_index,
-                        force_exploratory=False, task_class=task_class)
-        dag.task = task
+        self._in_replan = True
+        try:
+            enriched = f"{task}\n\n[research brief]: {brief_summary}"
+            dag = self.plan(enriched, run_index=run_index,
+                            force_exploratory=False, task_class=task_class)
+            dag.task = task
+        finally:
+            self._in_replan = False
         return dag
 
     # -- agent resolution -----------------------------------------------------

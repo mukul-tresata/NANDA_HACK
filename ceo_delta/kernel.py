@@ -111,7 +111,7 @@ class Kernel:
             out = self.llm.chat([
                 {"role": "system", "content": _SYSTEM},
                 {"role": "user", "content": prompt},
-            ], max_tokens=1024)
+            ], max_tokens=1024, tag=f"kernel.{node.node_id}")
             err = None
         except Exception as e:
             out, err = f"[node error] {e}", str(e)

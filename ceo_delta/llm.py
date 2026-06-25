@@ -29,20 +29,44 @@ class LLMClient:
         self.cfg = cfg or DEFAULT
         self._server_ok: Optional[bool] = None
         self.total_tokens = 0  # running cost meter (used by reflection budget)
+        self._call_log: list = []  # accumulates during a run; flushed by Orchestrator
+
+    def reset_call_log(self) -> None:
+        self._call_log = []
+
+    def flush_call_log(self) -> list:
+        out = self._call_log
+        self._call_log = []
+        return out
 
     # -- public ---------------------------------------------------------------
     def chat(self, messages: List[Dict[str, str]], *, max_tokens: int | None = None,
-             temperature: float | None = None) -> str:
+             temperature: float | None = None, tag: str = "") -> str:
+        import time as _time
+        t0 = _time.time()
+        stub_used = False
         try:
-            return self._chat_remote(messages, max_tokens, temperature)
+            response = self._chat_remote(messages, max_tokens, temperature)
         except (urllib.error.URLError, urllib.error.HTTPError, LLMError, TimeoutError, OSError) as e:
             if self.cfg.llm_allow_stub:
-                return self._chat_stub(messages)
-            raise LLMError(str(e))
+                response = self._chat_stub(messages)
+                stub_used = True
+            else:
+                raise LLMError(str(e))
+        latency = round(_time.time() - t0, 3)
+        self._call_log.append({
+            "tag":      tag,
+            "latency_s": latency,
+            "stub":     stub_used,
+            "prompt":   [{"role": m["role"], "content": m["content"][:800]} for m in messages],
+            "response": response[:1200],
+        })
+        return response
 
-    def chat_json(self, messages: List[Dict[str, str]], *, max_tokens: int | None = None) -> Any:
+    def chat_json(self, messages: List[Dict[str, str]], *, max_tokens: int | None = None,
+                  tag: str = "") -> Any:
         """Chat then parse JSON out of the reply, tolerant of fences/prose."""
-        raw = self.chat(messages, max_tokens=max_tokens, temperature=0.0)
+        raw = self.chat(messages, max_tokens=max_tokens, temperature=0.0, tag=tag)
         return extract_json(raw)
 
     # -- remote ---------------------------------------------------------------
@@ -52,6 +76,9 @@ class LLMClient:
             "messages": messages,
             "max_tokens": max_tokens or self.cfg.llm_max_tokens,
             "temperature": self.cfg.llm_temperature if temperature is None else temperature,
+            # Disable Qwen3 thinking mode so content arrives in message.content,
+            # not burned inside reasoning before the token budget runs out.
+            "chat_template_kwargs": {"enable_thinking": False},
         }).encode()
         req = urllib.request.Request(
             f"{self.cfg.llm_base_url}/chat/completions",
@@ -62,9 +89,8 @@ class LLMClient:
         usage = data.get("usage") or {}
         self.total_tokens += int(usage.get("total_tokens", 0))
         choice = data["choices"][0]["message"]
-        content = choice.get("content")
+        content = choice.get("content") or choice.get("reasoning") or ""
         if not content:
-            # reasoning models occasionally leave content null when truncated
             raise LLMError("empty content from model")
         return content.strip()
 

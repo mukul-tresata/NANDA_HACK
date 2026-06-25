@@ -135,7 +135,7 @@ class Research:
             {"role": "system", "content": _CLARIFY_SYSTEM},
             {"role": "user", "content": _CLARIFY_PROMPT.format(
                 task=task, priors=priors)},
-        ])
+        ], tag="research.clarify")
 
         structured_intent = str(data.get("structured_intent") or task)
         structured_emb = embed(structured_intent)
@@ -171,7 +171,7 @@ class Research:
             {"role": "system", "content": _INVESTIGATE_SYSTEM},
             {"role": "user", "content": _INVESTIGATE_PROMPT.format(
                 task=dag.task, structured_intent=si, intents=intents)},
-        ])
+        ], tag="research.investigate")
 
         refined = str(data.get("refined_intent") or si)
         # drift measured against structured_intent, not raw task
