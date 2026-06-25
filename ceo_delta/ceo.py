@@ -1,11 +1,22 @@
 """CEO Planner.
 
-Receives user intent -> queries the handbook -> plans the full DAG before any
-execution. Forces the 6-step reasoning chain and emits a separate WHY for
-topology vs depth. Handles:
-  * cold start: exploratory flag for first N runs OR low retrieval similarity;
-  * clarifying question when retrieval similarity is below threshold;
-  * replanning when Research's brief materially shifts the task (limitation #3).
+Receives user intent -> queries handbook -> resolves agents via AgentRegistry
+-> plans the full DAG before any execution fires.
+
+v0.3 — AgentCard integration.
+
+After building the DAG structure, CEO calls AgentRegistry.resolve_for_node()
+for each node. The registry filters by:
+    1. functional role match
+    2. security clearance >= task security requirement
+    3. confidence floor (cold-start guard)
+    4. trust score ranking, task-class-specific where possible
+
+The resolved agent_id is stored in node.assigned_agent_id.
+Kernel reads this to dispatch to the right agent and inject card context.
+
+If no agent passes the filters, node.assigned_agent_id stays None and
+Kernel falls back to the generic LLM — same behavior as before.
 """
 from __future__ import annotations
 
@@ -15,7 +26,7 @@ from .config import Config, DEFAULT
 from .embeddings import embed
 from .handbook import Handbook
 from .llm import LLMClient
-from .schemas import DAG, Node, Roles, Why
+from .schemas import AgentRegistry, DAG, Node, Roles, Why
 
 _SYSTEM = (
     "You are the CEO planning agent in a multi-agent system. You ONLY plan; you "
@@ -29,6 +40,9 @@ TASK: {task}
 
 HANDBOOK PRIORS (similar past tasks, may be empty/low-confidence):
 {priors}
+
+AVAILABLE AGENT ROLES (from registry):
+{agent_summary}
 
 {mode_note}
 
@@ -56,9 +70,12 @@ Output ONLY a JSON object of this exact shape:
 
 
 class CEO:
-    def __init__(self, handbook: Handbook, llm: LLMClient, cfg: Config | None = None):
+    def __init__(self, handbook: Handbook, llm: LLMClient,
+                 registry: Optional[AgentRegistry] = None,
+                 cfg: Config | None = None):
         self.hb = handbook
         self.llm = llm
+        self.registry = registry or AgentRegistry(cfg)
         self.cfg = cfg or DEFAULT
 
     # -- clarifying gate ------------------------------------------------------
@@ -68,28 +85,54 @@ class CEO:
         return (sim < self.cfg.clarify_similarity_threshold and len(self.hb.entries) > 0), sim
 
     # -- planning -------------------------------------------------------------
-    def plan(self, task: str, run_index: int = 0, *, force_exploratory: bool = False
-             ) -> DAG:
+    def plan(self, task: str, run_index: int = 0, *,
+             force_exploratory: bool = False,
+             task_class: str = "reasoning") -> DAG:
         task_emb = embed(task)
         priors = self._format_priors(task_emb)
+        agent_summary = self._format_agent_summary(task_class)
         exploratory = force_exploratory or run_index < self.cfg.cold_start_runs
-        mode_note = ("EXPLORATORY MODE: priors are weak/cold-start. Make a "
-                     "reasonable plan and we will flag WHY as low-confidence."
-                     if exploratory else
-                     "STANDARD MODE: lean on the priors where confident.")
-        prompt = _PROMPT.format(task=task, priors=priors, mode_note=mode_note)
+        mode_note = (
+            "EXPLORATORY MODE: priors are weak/cold-start. Make a reasonable "
+            "plan and flag WHY as low-confidence."
+            if exploratory else
+            "STANDARD MODE: lean on the priors where confident."
+        )
+        prompt = _PROMPT.format(
+            task=task, priors=priors,
+            agent_summary=agent_summary, mode_note=mode_note,
+        )
         data = self.llm.chat_json([
             {"role": "system", "content": _SYSTEM},
             {"role": "user", "content": prompt},
         ])
-        return self._build_dag(task, task_emb, data, exploratory, priors_used=self._priors_id(task_emb))
-
-    def replan(self, task: str, brief_summary: str, run_index: int = 0) -> DAG:
-        """Re-plan after a materially-changing research brief."""
-        enriched = f"{task}\n\n[research brief]: {brief_summary}"
-        dag = self.plan(enriched, run_index=run_index, force_exploratory=False)
-        dag.task = task  # keep original task label
+        dag = self._build_dag(
+            task, task_emb, data, exploratory,
+            priors_used=self._priors_id(task_emb),
+        )
+        # resolve agents for each node AFTER DAG structure is set
+        self._resolve_agents(dag, task_class)
         return dag
+
+    def replan(self, task: str, brief_summary: str,
+               run_index: int = 0, task_class: str = "reasoning") -> DAG:
+        enriched = f"{task}\n\n[research brief]: {brief_summary}"
+        dag = self.plan(enriched, run_index=run_index,
+                        force_exploratory=False, task_class=task_class)
+        dag.task = task
+        return dag
+
+    # -- agent resolution -----------------------------------------------------
+    def _resolve_agents(self, dag: DAG, task_class: str) -> None:
+        """Assign the best available agent to each node.
+
+        """
+        for node in dag.nodes:
+            card = self.registry.resolve_for_node(
+                functional_role=node.roles.functional,
+                task_class=task_class,
+            )
+            node.assigned_agent_id = card.agent_id if card else None
 
     # -- helpers --------------------------------------------------------------
     def _build_dag(self, task, task_emb, data, exploratory, priors_used) -> DAG:
@@ -119,10 +162,12 @@ class CEO:
                 why=why,
                 expected_output_fingerprint=embed(intent),
             ))
-        if not nodes:  # guarantee at least one node
-            nodes = [Node(node_id="n1", intent=task,
-                          expected_output_fingerprint=embed(task),
-                          why=Why(exploratory=exploratory, priors_used=priors_used))]
+        if not nodes:
+            nodes = [Node(
+                node_id="n1", intent=task,
+                expected_output_fingerprint=embed(task),
+                why=Why(exploratory=exploratory, priors_used=priors_used),
+            )]
         return DAG(
             task=task, task_embedding=task_emb, topology=topology, depth=depth,
             nodes=nodes, why_topology=str(data.get("why_topology", "")),
@@ -137,8 +182,26 @@ class CEO:
         for e, sim in matches:
             tag = "CONTESTED" if e.contested else f"conf={e.confidence}"
             lines.append(
-                f"- sim={sim:.2f} [{tag}] topo={e.topology_chosen} depth={e.depth_chosen} "
-                f":: {e.revision or e.task_summary[:80]}")
+                f"- sim={sim:.2f} [{tag}] topo={e.topology_chosen} "
+                f"depth={e.depth_chosen} :: {e.revision or e.task_summary[:80]}"
+            )
+        return "\n".join(lines)
+
+    def _format_agent_summary(self, task_class: str) -> str:
+        """Show the LLM what agents exist and their trust levels.
+        This lets CEO make role assignments that are grounded in reality.
+        """
+        summary = self.registry.summary()
+        if not summary:
+            return "(no agents registered)"
+        lines = []
+        for s in summary:
+            conf_note = f"conf={s['confidence']}" if s['confidence'] > 0 else "cold-start"
+            lines.append(
+                f"- {s['agent_id']} roles={s['roles']} "
+                f"trust={s['trust']:.2f} [{conf_note}] "
+                f"sec={s['security']}"
+            )
         return "\n".join(lines)
 
     def _priors_id(self, task_emb) -> str:
