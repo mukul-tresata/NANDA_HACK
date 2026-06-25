@@ -16,7 +16,7 @@ import re
 import urllib.error
 import urllib.request
 from typing import Any, Dict, List, Optional
-
+import os 
 from .config import Config, DEFAULT
 
 
@@ -78,18 +78,17 @@ class LLMClient:
             "temperature": self.cfg.llm_temperature if temperature is None else temperature,
             # Disable Qwen3 thinking mode so content arrives in message.content,
             # not burned inside reasoning before the token budget runs out.
-            "chat_template_kwargs": {"enable_thinking": False},
+            # "chat_template_kwargs": {"enable_thinking": False},
         }).encode()
         req = urllib.request.Request(
             f"{self.cfg.llm_base_url}/chat/completions",
-            data=body, headers={"Content-Type": "application/json"}, method="POST",
+            data=body, headers={"Content-Type": "application/json", "x-api-key" : os.environ.get("ANTHROPIC_API_KEY", ""), "anthropic-version" : "2023-06-01"}, method="POST",
         )
         with urllib.request.urlopen(req, timeout=self.cfg.llm_timeout_s) as resp:
             data = json.loads(resp.read().decode())
         usage = data.get("usage") or {}
-        self.total_tokens += int(usage.get("total_tokens", 0))
-        choice = data["choices"][0]["message"]
-        content = choice.get("content") or choice.get("reasoning") or ""
+        self.total_tokens += int(usage.get("input_tokens", 0)) + int(usage.get("output_tokens", 0))
+        content = data["content"][0]["text"]
         if not content:
             raise LLMError("empty content from model")
         return content.strip()

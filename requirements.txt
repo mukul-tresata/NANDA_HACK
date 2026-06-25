@@ -2,3 +2,4 @@
 # (urllib for the vLLM OpenAI-compatible API, hashlib for embeddings.)
 # pytest is only needed to run the test suite.
 pytest>=7.0
+sentence-transformers >= 2.7.0

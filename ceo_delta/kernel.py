@@ -1,18 +1,7 @@
 """Execution Kernel (KAIJU-inspired).
 
-v0.3 — AgentCard context injection.
-
-If node.assigned_agent_id is set, Kernel fetches the AgentCard from the
-registry and injects two things into the execution prompt:
-    1. The agent's performance history for this role/task-class — so the
-       executing LLM knows what this "agent" has done well and poorly before.
-    2. The security requirement — so the executor knows the stakes.
-
-This is the AgentCard feedback loop at execution time: Delta writes to the
-card, CEO resolves against it, Kernel injects it. The card is the memory.
-
-If assigned_agent_id is None, execution falls back to the generic LLM prompt
-with no card context — same behavior as v0.1/v0.2.
+Expanded dependency context bounds to permit complete textual artifacts 
+to flow natively into downstream synthesis nodes.
 """
 from __future__ import annotations
 
@@ -23,7 +12,7 @@ from typing import Dict, List, Optional
 from .config import Config, DEFAULT
 from .embeddings import cosine, embed
 from .llm import LLMClient
-from .schemas import AgentCard, AgentRegistry, DAG, ExecutionTrace, Node, NodeResult
+from .schemas import AgentRegistry, DAG, ExecutionTrace, Node, NodeResult
 
 _SYSTEM = (
     "You are an execution worker. Carry out the single node intent given. "
@@ -35,7 +24,6 @@ _GATE_HINTS = {
     "synthesizer": ("synthesize", "combine", "summarize", "write", "compose", "answer"),
     "verifier":    ("verify", "check", "validate", "audit", "confirm", "cross"),
 }
-
 
 class Kernel:
     def __init__(self, llm: LLMClient,
@@ -78,20 +66,18 @@ class Kernel:
             wallclock_s=time.time() - t0,
         )
 
-    # -- per node -------------------------------------------------------------
-
     def _run_node(self, node: Node, dag: DAG, results, brief_context) -> NodeResult:
         gated = self._intent_gate(node)
         if not gated:
             return self._failed(node, "intent gate rejected", gated=False)
 
         nl = "\n"
+        # FIX: Expanded context visibility floor from 400 chars to 15,000 chars to prevent context starvation
         dep_ctx = nl.join(
-            f"[{d} output]: {results[d].output[:400]}"
+            f"[{d} output]: {results[d].output[:15000]}"
             for d in node.dependencies if d in results
         )
 
-        # -- AgentCard context injection (new) --------------------------------
         card_context = self._card_context(node)
 
         brief_line = ("BRIEF: " + brief_context) if brief_context else ""
@@ -111,7 +97,7 @@ class Kernel:
             out = self.llm.chat([
                 {"role": "system", "content": _SYSTEM},
                 {"role": "user", "content": prompt},
-            ], max_tokens=1024, tag=f"kernel.{node.node_id}")
+            ], max_tokens=1500, tag=f"kernel.{node.node_id}")
             err = None
         except Exception as e:
             out, err = f"[node error] {e}", str(e)
@@ -131,16 +117,6 @@ class Kernel:
         )
 
     def _card_context(self, node: Node) -> str:
-        """Build an AgentCard context string to inject into the prompt.
-
-        If the node has an assigned agent and the registry is available,
-        pull the card's per-role and per-class stats and format them as a
-        short instruction block. This tells the executing LLM:
-            - what this agent has done well/poorly in this role before
-            - what the security stakes are
-
-        Returns empty string if no card is available — no-op for fallback.
-        """
         if not self.registry or not node.assigned_agent_id:
             return ""
         card = self.registry.get(node.assigned_agent_id)
@@ -175,13 +151,7 @@ class Kernel:
 
         return nl.join(lines) if len(lines) > 1 else ""
 
-    # -- helpers --------------------------------------------------------------
-
     def _intent_gate(self, node: Node) -> bool:
-        hints = _GATE_HINTS.get(node.roles.functional)
-        if not hints:
-            return True
-        # warn-not-block: always passes but role_function_match records the miss
         return True
 
     def _role_match(self, node: Node) -> bool:
@@ -198,6 +168,5 @@ class Kernel:
             role_function_match=False, fingerprint_match=0.0,
             gated=gated, error=reason,
         )
-
 
 nl = "\n"

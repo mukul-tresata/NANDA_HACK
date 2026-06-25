@@ -1,53 +1,32 @@
-"""Dependency-free deterministic text embeddings.
+"""Semantic text embeddings via sentence-transformers.
 
-The vLLM server exposes no /embeddings endpoint, so the handbook's semantic
-similarity is backed by a hashing bag-of-ngrams embedding. It is deterministic,
-needs no model download, and gives stable cosine geometry for retrieval and for
-the echoing / replan / fingerprint comparisons. Swap `embed()` for a real model
-later without touching callers.
+Replaces the bag-of-ngrams stub. all-MiniLM-L6-v2 is ~80MB, CPU-friendly,
+and produces 384-dim unit vectors with real semantic geometry.
+
+Swap embed() for a larger model later without touching callers.
+Model is loaded once and cached — subsequent calls are fast.
 """
 from __future__ import annotations
 
-import hashlib
-import math
-import re
+from functools import lru_cache
 from typing import List
 
-from .config import DEFAULT
 
-_WORD = re.compile(r"[a-z0-9]+")
-
-
-def _tokens(text: str) -> List[str]:
-    words = _WORD.findall(text.lower())
-    grams = list(words)
-    # word bigrams capture a little ordering
-    grams += [f"{a}_{b}" for a, b in zip(words, words[1:])]
-    return grams
-
-
-def _bucket(token: str, dim: int) -> int:
-    h = hashlib.blake2b(token.encode("utf-8"), digest_size=8).digest()
-    return int.from_bytes(h, "little") % dim
+@lru_cache(maxsize=1)
+def _model():
+    from sentence_transformers import SentenceTransformer
+    return SentenceTransformer("all-MiniLM-L6-v2")
 
 
 def embed(text: str, dim: int | None = None) -> List[float]:
-    dim = dim or DEFAULT.embed_dim
-    vec = [0.0] * dim
-    for tok in _tokens(text or ""):
-        # signed hashing trick reduces collision bias
-        b = _bucket(tok, dim)
-        sign = 1.0 if _bucket(tok + "#", 2) == 0 else -1.0
-        vec[b] += sign
-    norm = math.sqrt(sum(v * v for v in vec))
-    if norm == 0:
-        return vec
-    return [v / norm for v in vec]
+    # dim arg kept for API compatibility — MiniLM is fixed at 384
+    vec = _model().encode(text or "", normalize_embeddings=True)
+    return vec.tolist()
 
 
 def cosine(a: List[float], b: List[float]) -> float:
     if not a or not b or len(a) != len(b):
         return 0.0
     dot = sum(x * y for x, y in zip(a, b))
-    # vectors are already unit-normalized in embed(); clamp for safety
+    # vectors are already unit-normalized by encode(); clamp for float safety
     return max(-1.0, min(1.0, dot))

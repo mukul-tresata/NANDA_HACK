@@ -178,7 +178,7 @@ class Research:
         base_emb = embed(si)
         sim = cosine(base_emb, embed(refined))
         drift = 1.0 - sim
-        triggers = sim < self.cfg.replan_threshold
+        triggers = sim < (1.0 - self.cfg.replan_threshold)
 
         return Brief(
             summary=str(data.get("summary", "")),

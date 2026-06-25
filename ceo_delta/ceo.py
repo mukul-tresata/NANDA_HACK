@@ -17,6 +17,12 @@ Kernel reads this to dispatch to the right agent and inject card context.
 
 If no agent passes the filters, node.assigned_agent_id stays None and
 Kernel falls back to the generic LLM — same behavior as before.
+
+v0.4 changes:
+    - Prior-confidence steering: high-confidence handbook priors now lock in
+      topology/depth by default; LLM must justify deviation explicitly.
+    - Synthesizer fingerprint fix: synthesizer nodes fingerprint against the
+      parent task embedding, not the node intent string.
 """
 from __future__ import annotations
 
@@ -45,6 +51,8 @@ AVAILABLE AGENT ROLES (from registry):
 {agent_summary}
 
 {mode_note}
+
+{prior_lock}
 
 Reason through these steps, THEN output JSON:
 1. What kind of task is this?
@@ -98,9 +106,11 @@ class CEO:
             if exploratory else
             "STANDARD MODE: lean on the priors where confident."
         )
+        prior_lock = self._prior_lock_note(task_emb, exploratory)
         prompt = _PROMPT.format(
             task=task, priors=priors,
             agent_summary=agent_summary, mode_note=mode_note,
+            prior_lock=prior_lock,
         )
         data = self.llm.chat_json([
             {"role": "system", "content": _SYSTEM},
@@ -128,9 +138,7 @@ class CEO:
 
     # -- agent resolution -----------------------------------------------------
     def _resolve_agents(self, dag: DAG, task_class: str) -> None:
-        """Assign the best available agent to each node.
-
-        """
+        """Assign the best available agent to each node."""
         for node in dag.nodes:
             card = self.registry.resolve_for_node(
                 functional_role=node.roles.functional,
@@ -146,6 +154,7 @@ class CEO:
         nodes: List[Node] = []
         for nr in nodes_raw:
             intent = str(nr.get("intent", "")).strip() or "unspecified"
+            functional_role = str(nr.get("functional", "generic"))
             why = Why(
                 task_type_recognized=str(data.get("task_type", "")),
                 topology_chosen=topology,
@@ -154,22 +163,26 @@ class CEO:
                 priors_used=priors_used,
                 exploratory=exploratory,
             )
+            # Synthesizer nodes fingerprint against the parent task, not their
+            # own intent string — synthesis output should reflect task fidelity,
+            # not intent-string similarity (which is always low by design).
+            fingerprint_target = task_emb if functional_role == "synthesizer" else embed(intent)
             nodes.append(Node(
                 node_id=str(nr.get("node_id") or f"n{len(nodes)+1}"),
                 intent=intent,
                 roles=Roles(
                     structural=str(nr.get("structural", topology)),
-                    functional=str(nr.get("functional", "generic")),
+                    functional=functional_role,
                     epistemic=str(nr.get("epistemic", "generalist")),
                 ),
                 dependencies=[str(d) for d in (nr.get("dependencies") or [])],
                 why=why,
-                expected_output_fingerprint=embed(intent),
+                expected_output_fingerprint=fingerprint_target,
             ))
         if not nodes:
             nodes = [Node(
                 node_id="n1", intent=task,
-                expected_output_fingerprint=embed(task),
+                expected_output_fingerprint=task_emb,
                 why=Why(exploratory=exploratory, priors_used=priors_used),
             )]
         return DAG(
@@ -177,6 +190,28 @@ class CEO:
             nodes=nodes, why_topology=str(data.get("why_topology", "")),
             why_depth=str(data.get("why_depth", "")), exploratory=exploratory,
         )
+
+    def _prior_lock_note(self, task_emb, exploratory: bool) -> str:
+        """If a high-confidence prior exists, tell the LLM to lock it in.
+
+        Only fires in standard mode (not exploratory) — during cold start we
+        want free exploration, not premature convergence.
+        """
+        if exploratory:
+            return ""
+        entry, sim = self.hb.best_match(task_emb)
+        if (entry
+                and sim >= 0.7
+                and entry.confidence >= self.cfg.cold_start_runs
+                and not entry.contested):
+            return (
+                f"HIGH-CONFIDENCE PRIOR (sim={sim:.2f}, conf={entry.confidence}): "
+                f"topology={entry.topology_chosen}, depth={entry.depth_chosen}. "
+                f"Treat these as the default. Only deviate if you can state a "
+                f"concrete structural reason why this task differs from the prior — "
+                f"'seems different' is not sufficient."
+            )
+        return ""
 
     def _format_priors(self, task_emb) -> str:
         matches = self.hb.query(task_emb)

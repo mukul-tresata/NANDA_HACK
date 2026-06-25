@@ -8,15 +8,17 @@ from dataclasses import dataclass, field
 @dataclass
 class Config:
     # ---- LLM backend --------------------------------------------------------
-    llm_base_url: str = os.environ.get("CEO_LLM_URL", "http://10.8.0.23:8001/v1")
-    llm_model: str = os.environ.get("CEO_LLM_MODEL", "my-model")
+    # llm_base_url: str = os.environ.get("CEO_LLM_URL", "http://10.8.0.23:8001/v1")
+    # llm_model: str = os.environ.get("CEO_LLM_MODEL", "my-model")
+    llm_base_url : str = os.environ.get("CEO_LLM_URL", "https://api.anthropic.com/v1")
+    llm_model : str = os.environ.get("CEO_LLM_MODEL", "claude-haiku-4-5")
     llm_max_tokens: int = 6000
     llm_temperature: float = 0.2
     llm_timeout_s: int = 120
     llm_allow_stub: bool = True
 
     # ---- Embeddings ---------------------------------------------------------
-    embed_dim: int = 256
+    embed_dim: int = 384
 
     # ---- Cold start ---------------------------------------------------------
     cold_start_runs: int = 3
