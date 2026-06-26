@@ -48,6 +48,7 @@ class LLMClient:
         try:
             response = self._chat_remote(messages, max_tokens, temperature)
         except (urllib.error.URLError, urllib.error.HTTPError, LLMError, TimeoutError, OSError) as e:
+            print("DEBUG ERROR:", type(e).__name__, str(e))
             if self.cfg.llm_allow_stub:
                 response = self._chat_stub(messages)
                 stub_used = True
@@ -71,18 +72,34 @@ class LLMClient:
 
     # -- remote ---------------------------------------------------------------
     def _chat_remote(self, messages, max_tokens, temperature) -> str:
-        body = json.dumps({
+    # Anthropic requires system prompt separated from messages array
+        system = ""
+        filtered = []
+        for m in messages:
+            if m["role"] == "system":
+                system = m["content"]
+            else:
+                filtered.append(m)
+
+        payload = {
             "model": self.cfg.llm_model,
-            "messages": messages,
             "max_tokens": max_tokens or self.cfg.llm_max_tokens,
             "temperature": self.cfg.llm_temperature if temperature is None else temperature,
-            # Disable Qwen3 thinking mode so content arrives in message.content,
-            # not burned inside reasoning before the token budget runs out.
-            # "chat_template_kwargs": {"enable_thinking": False},
-        }).encode()
+            "messages": filtered,
+        }
+        if system:
+            payload["system"] = system
+
+        body = json.dumps(payload).encode()
         req = urllib.request.Request(
             f"{self.cfg.llm_base_url}/messages",
-            data=body, headers={"Content-Type": "application/json", "x-api-key" : os.environ.get("ANTHROPIC_API_KEY", ""), "anthropic-version" : "2023-06-01"}, method="POST",
+            data=body,
+            headers={
+                "Content-Type": "application/json",
+                "x-api-key": os.environ.get("ANTHROPIC_API_KEY", ""),
+                "anthropic-version": "2023-06-01",
+            },
+            method="POST",
         )
         with urllib.request.urlopen(req, timeout=self.cfg.llm_timeout_s) as resp:
             data = json.loads(resp.read().decode())
