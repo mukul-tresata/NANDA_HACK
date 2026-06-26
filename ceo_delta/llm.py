@@ -81,7 +81,7 @@ class LLMClient:
             # "chat_template_kwargs": {"enable_thinking": False},
         }).encode()
         req = urllib.request.Request(
-            f"{self.cfg.llm_base_url}/chat/completions",
+            f"{self.cfg.llm_base_url}/messages",
             data=body, headers={"Content-Type": "application/json", "x-api-key" : os.environ.get("ANTHROPIC_API_KEY", ""), "anthropic-version" : "2023-06-01"}, method="POST",
         )
         with urllib.request.urlopen(req, timeout=self.cfg.llm_timeout_s) as resp:
