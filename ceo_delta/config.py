@@ -8,11 +8,9 @@ from dataclasses import dataclass, field
 @dataclass
 class Config:
     # ---- LLM backend --------------------------------------------------------
-    # llm_base_url: str = os.environ.get("CEO_LLM_URL", "http://10.8.0.23:8001/v1")
-    # llm_model: str = os.environ.get("CEO_LLM_MODEL", "my-model")
-    llm_base_url : str = os.environ.get("CEO_LLM_URL", "https://api.anthropic.com/v1")
-    llm_model : str = os.environ.get("CEO_LLM_MODEL", "claude-haiku-4-5")
-    llm_max_tokens: int = 6000
+    llm_base_url: str = os.environ.get("CEO_LLM_URL", "http://10.8.0.23:8001/v1")
+    llm_model: str = os.environ.get("CEO_LLM_MODEL", "my-model")
+    llm_max_tokens: int = 8000
     llm_temperature: float = 0.2
     llm_timeout_s: int = 120
     llm_allow_stub: bool = True
@@ -42,6 +40,14 @@ class Config:
     # ---- Delta surprise / metrics -------------------------------------------
     surprise_factor: float = 2.0
     echo_cosine_threshold: float = 0.85
+
+     # ---- Directive loop -----------------------------------------------------
+    max_ceo_eval_iterations: int = 3
+    delta_surface_threshold: float = 0.20   # Δe below this → surface immediately
+    delta_echo_threshold: float = 0.3       # weighted echo above this → replan
+    delta_mismatch_threshold: float = 0.4   # weighted mismatch above this → refine
+    delta_fp_low_threshold: float = 0.4     # weighted fp below this → refine
+    escalation_enabled: bool = True
 
     # ---- Handbook retrieval -------------------------------------------------
     handbook_top_k: int = 4

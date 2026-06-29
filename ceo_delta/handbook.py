@@ -49,7 +49,7 @@ class Handbook:
 
     def upsert_votes(self, task_embedding: List[float], task_summary: str,
                      topology: str, depth: int, outcome_good: bool,
-                     revision: str = "", merge_radius: float = 0.8) -> HandbookEntry:
+                     revision: str = "", merge_radius: float = 0.72) -> HandbookEntry:
         entry, sim = self.best_match(task_embedding)
         if entry is None or sim < merge_radius:
             entry = HandbookEntry(task_embedding=task_embedding, task_summary=task_summary)
@@ -81,6 +81,22 @@ class Handbook:
         total = sum(entry.topology_votes.values())
         entry.confidence = entry.topology_votes.get(entry.topology_chosen, 0)
         entry.contested = (total >= self.cfg.conflict_min_votes) and not topo_settled
+    
+    def upsert_directive_outcome(self, task_embedding: List[float], directive_key: str,
+                                  delta_e_before: float, delta_e_after: float) -> None:
+        entry, _ = self.best_match(task_embedding)
+        if not entry:
+            return
+        if directive_key not in entry.directive_outcomes:
+            entry.directive_outcomes[directive_key] = {
+                "fires": 0, "fixed": 0,
+                "delta_e_before": [], "delta_e_after": [],
+            }
+        rec = entry.directive_outcomes[directive_key]
+        rec["fires"] += 1
+        rec["fixed"] += int(delta_e_after < delta_e_before * 0.8)
+        rec["delta_e_before"].append(round(delta_e_before, 4))
+        rec["delta_e_after"].append(round(delta_e_after, 4))
 
     def _resolve_dist(self, votes: Dict[str, int]) -> Tuple[Optional[str], bool]:
         items = [(k, v) for k, v in votes.items() if v > 0]

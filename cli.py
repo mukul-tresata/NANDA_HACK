@@ -45,6 +45,12 @@ def _print_run(r):
               f"resolved={r.reflection.resolved} notes={r.reflection.notes}")
     print(f"\nANSWER:\n{r.answer[:1200]}")
     print("=" * 70)
+    print(f"\nDIRECTIVE LOOP: iterations={r.iterations} final_Δe={r.final_delta_e:.4f}")
+    for i, d in enumerate(r.directive_history):
+        esc = " [ESCALATED]" if d.escalated else ""
+        print(f"  iter {d.iteration}: {d.action.upper()} — {d.reason}{esc}")
+        if d.replan_hint and d.action != "surface":
+            print(f"    hint: {d.replan_hint[:120]}")
 
 
 def cmd_run(args):
@@ -86,6 +92,49 @@ def cmd_demo(args):
     print("\n\n========== FINAL HANDBOOK ==========")
     cmd_handbook(args)
 
+def cmd_escalations(args):
+    import os
+    path = ".ceo_delta/escalations.jsonl"
+    if not os.path.exists(path):
+        print("No escalations logged yet.")
+        return
+    with open(path) as f:
+        entries = [json.loads(line) for line in f if line.strip()]
+    print(f"=== ESCALATION LOG ({len(entries)} entries) ===")
+    for i, e in enumerate(entries):
+        print(f"\n[{i+1}] iter={e['iteration']} Δe={e['delta_e']} verdict={e['verdict']}")
+        print(f"  topology={e['topology']} depth={e['depth']}")
+        print(f"  failure : {e['failure']}")
+        print(f"  semantic: {e['semantic']}")
+
+
+def cmd_probe(args):
+    orch = Orchestrator()
+    from ceo_delta.embeddings import embed
+    task_emb = embed(args.task)
+    print(f"\nPROBE: '{args.task}'")
+    print(f"\n--- CEO Handbook ---")
+    for e, sim in orch.ceo_hb.query(task_emb):
+        tag = "CONTESTED" if e.contested else f"conf={e.confidence}"
+        would_lock = (
+            sim >= 0.7
+            and e.confidence >= 3
+            and not e.contested
+        )
+        lock_note = " ← WOULD LOCK" if would_lock else ""
+        print(f"  sim={sim:.3f} [{tag}] topo={e.topology_chosen} "
+              f"depth={e.depth_chosen}{lock_note}")
+        print(f"    summary: {e.task_summary[:80]}")
+        if e.directive_outcomes:
+            for k, v in e.directive_outcomes.items():
+                fix_rate = v['fixed'] / v['fires'] if v['fires'] else 0
+                print(f"    directive '{k}': fires={v['fires']} "
+                      f"fix_rate={fix_rate:.0%}")
+    print(f"\n--- Research Handbook ---")
+    for e, sim in orch.research_hb.query(task_emb):
+        tag = "CONTESTED" if e.contested else f"conf={e.confidence}"
+        print(f"  sim={sim:.3f} [{tag}] topo={e.topology_chosen} "
+              f"depth={e.depth_chosen} :: {e.task_summary[:80]}")
 
 def main(argv=None):
     p = argparse.ArgumentParser(prog="ceo-delta")
@@ -98,6 +147,10 @@ def main(argv=None):
     sub.add_parser("reflect").set_defaults(fn=cmd_reflect)
     sub.add_parser("handbook").set_defaults(fn=cmd_handbook)
     sub.add_parser("demo").set_defaults(fn=cmd_demo)
+    sub.add_parser("escalations").set_defaults(fn=cmd_escalations)
+
+    pp = sub.add_parser("probe"); pp.add_argument("task")
+    pp.set_defaults(fn=cmd_probe)
 
     args = p.parse_args(argv)
     args.fn(args)

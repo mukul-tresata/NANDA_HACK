@@ -82,10 +82,22 @@ class Kernel:
 
         brief_line = ("BRIEF: " + brief_context) if brief_context else ""
         upstream_line = ("UPSTREAM:" + nl + dep_ctx) if dep_ctx else ""
+        verifier_instruction = (
+            "VERIFICATION RULES — AUDIT MODE ONLY:\n"
+            "You are an auditor. You do NOT generate, synthesize, or add new information.\n"
+            "You ONLY evaluate claims already present in the upstream context.\n"
+            "Flag every specific statistic, numerical figure, probability, cost estimate, "
+            "named study, or causal claim with [UNVERIFIED: <claim>] unless a cited source "
+            "appears in the upstream context supporting it exactly.\n"
+            "Do not flag general reasoning or qualitative analysis.\n"
+            "If you find yourself writing a number that does not appear upstream, STOP — "
+            "that is a hallucination. Flag it instead."
+        ) if node.roles.functional == "verifier" else ""
         prompt = (
             f"NODE INTENT: {node.intent}{nl}"
             f"ROLE: {node.roles.functional}/{node.roles.epistemic}{nl}"
             f"{card_context}{nl}"
+            f"{verifier_instruction}{nl}"
             f"{brief_line}{nl}"
             f"{upstream_line}{nl}"
             "Produce the artifact for this node."

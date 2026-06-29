@@ -16,7 +16,7 @@ import re
 import urllib.error
 import urllib.request
 from typing import Any, Dict, List, Optional
-import os 
+import os
 from .config import Config, DEFAULT
 
 
@@ -28,8 +28,8 @@ class LLMClient:
     def __init__(self, cfg: Config | None = None):
         self.cfg = cfg or DEFAULT
         self._server_ok: Optional[bool] = None
-        self.total_tokens = 0  # running cost meter (used by reflection budget)
-        self._call_log: list = []  # accumulates during a run; flushed by Orchestrator
+        self.total_tokens = 0
+        self._call_log: list = []
 
     def reset_call_log(self) -> None:
         self._call_log = []
@@ -56,11 +56,11 @@ class LLMClient:
                 raise LLMError(str(e))
         latency = round(_time.time() - t0, 3)
         self._call_log.append({
-            "tag":      tag,
+            "tag":       tag,
             "latency_s": latency,
-            "stub":     stub_used,
-            "prompt":   [{"role": m["role"], "content": m["content"][:800]} for m in messages],
-            "response": response[:1200],
+            "stub":      stub_used,
+            "prompt":    [{"role": m["role"], "content": m["content"][:800]} for m in messages],
+            "response":  response[:1200],
         })
         return response
 
@@ -72,48 +72,39 @@ class LLMClient:
 
     # -- remote ---------------------------------------------------------------
     def _chat_remote(self, messages, max_tokens, temperature) -> str:
-    # Anthropic requires system prompt separated from messages array
-        system = ""
-        filtered = []
-        for m in messages:
-            if m["role"] == "system":
-                system = m["content"]
-            else:
-                filtered.append(m)
-
+        # OpenAI-compatible endpoint: system message stays in the messages array
         payload = {
             "model": self.cfg.llm_model,
             "max_tokens": max_tokens or self.cfg.llm_max_tokens,
             "temperature": self.cfg.llm_temperature if temperature is None else temperature,
-            "messages": filtered,
+            "messages": messages,  # system message passed inline, no special handling needed
+            "chat_template_kwargs" : {"enable_thinking": False},
         }
-        if system:
-            payload["system"] = system
 
         body = json.dumps(payload).encode()
         req = urllib.request.Request(
-            f"{self.cfg.llm_base_url}/messages",
+            f"{self.cfg.llm_base_url}/chat/completions",  # OpenAI-compatible path
             data=body,
             headers={
                 "Content-Type": "application/json",
-                "x-api-key": os.environ.get("ANTHROPIC_API_KEY", ""),
-                "anthropic-version": "2023-06-01",
+                "Authorization": "Bearer EMPTY",
             },
             method="POST",
         )
         with urllib.request.urlopen(req, timeout=self.cfg.llm_timeout_s) as resp:
             data = json.loads(resp.read().decode())
+
         usage = data.get("usage") or {}
-        self.total_tokens += int(usage.get("input_tokens", 0)) + int(usage.get("output_tokens", 0))
-        content = data["content"][0]["text"]
+        self.total_tokens += int(usage.get("prompt_tokens", 0)) + int(usage.get("completion_tokens", 0))
+        # OpenAI format: choices[0].message.content
+        content = data["choices"][0]["message"]["content"]
         if not content:
             raise LLMError("empty content from model")
         return content.strip()
 
     # -- stub -----------------------------------------------------------------
     def _chat_stub(self, messages) -> str:
-        """Deterministic offline fallback. Returns minimal valid JSON when a JSON
-        schema is requested, else a short canned string."""
+        """Deterministic offline fallback."""
         prompt = "\n".join(m["content"] for m in messages)
         low = prompt.lower()
         self.total_tokens += 200
@@ -166,12 +157,10 @@ def extract_json(raw: str) -> Any:
         raise LLMError("empty reply")
     m = _JSON_FENCE.search(raw)
     candidate = m.group(1) if m else raw
-    # try direct
     try:
         return json.loads(candidate)
     except json.JSONDecodeError:
         pass
-    # find first balanced {...} or [...]
     for opener, closer in (("{", "}"), ("[", "]")):
         start = candidate.find(opener)
         if start == -1:

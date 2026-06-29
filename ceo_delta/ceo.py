@@ -54,25 +54,28 @@ AVAILABLE AGENT ROLES (from registry):
 
 {prior_lock}
 
+{directive_context}
+
 Reason through these steps, THEN output JSON:
 1. What kind of task is this?
 2. What do the priors say about similar tasks?
-3. What topology shape fits? (linear / fan-out / join / hierarchical / hub)
+3. What topology shape fits? Choose EXACTLY ONE from this list - no combinations, no hypens, no compound names: linear, fan-out, join, hierarchical, hub
 4. What depth is warranted? (integer 1-4; shallower is cheaper)
 5. What are the nodes and dependencies?
 6. WHY per decision.
 
-Output ONLY a JSON object of this exact shape:
+Output ONLY a JSON object of this exact shape. Do not output any text before or after the JSON block. No reasoning, no explanation, no markdown headers:
 {{
   "task_type": "...",
   "topology": "fan-out",
   "depth": 2,
   "why_topology": "why this shape, and what shape you rejected",
+  "directive_response": "if a Delta directive was received, how did you respond to it and why",
   "why_depth": "why this depth",
   "alternatives_rejected": "...",
   "nodes": [
     {{"node_id":"n1","intent":"...","dependencies":[],
-      "structural":"fan-out","functional":"retriever","epistemic":"specialist"}}
+      "structural":"fan-out", "functional":"retriever","epistemic":"specialist"}}
   ]
 }}"""
 
@@ -95,7 +98,8 @@ class CEO:
     # -- planning -------------------------------------------------------------
     def plan(self, task: str, run_index: int = 0, *,
              force_exploratory: bool = False,
-             task_class: str = "reasoning") -> DAG:
+             task_class: str = "reasoning",
+             directive=None) -> DAG:
         task_emb = embed(task)
         priors = self._format_priors(task_emb)
         agent_summary = self._format_agent_summary(task_class)
@@ -107,10 +111,12 @@ class CEO:
             "STANDARD MODE: lean on the priors where confident."
         )
         prior_lock = self._prior_lock_note(task_emb, exploratory)
+        directive_context = self._format_directive(directive)
         prompt = _PROMPT.format(
             task=task, priors=priors,
             agent_summary=agent_summary, mode_note=mode_note,
             prior_lock=prior_lock,
+            directive_context=directive_context,
         )
         data = self.llm.chat_json([
             {"role": "system", "content": _SYSTEM},
@@ -119,6 +125,7 @@ class CEO:
         dag = self._build_dag(
             task, task_emb, data, exploratory,
             priors_used=self._priors_id(task_emb),
+            directive=directive,
         )
         # resolve agents for each node AFTER DAG structure is set
         self._resolve_agents(dag, task_class)
@@ -147,7 +154,7 @@ class CEO:
             node.assigned_agent_id = card.agent_id if card else None
 
     # -- helpers --------------------------------------------------------------
-    def _build_dag(self, task, task_emb, data, exploratory, priors_used) -> DAG:
+    def _build_dag(self, task, task_emb, data, exploratory, priors_used, directive=None) -> DAG:
         topology = str(data.get("topology", "linear"))
         depth = int(data.get("depth", 1) or 1)
         nodes_raw = data.get("nodes") or []
@@ -162,6 +169,8 @@ class CEO:
                 alternatives_rejected=str(data.get("alternatives_rejected", "")),
                 priors_used=priors_used,
                 exploratory=exploratory,
+                directive_received=directive.reason if directive and directive.action != "surface" else "",
+                directive_response=str(data.get("directive_response", ""))[:200],
             )
             # Synthesizer nodes fingerprint against the parent task, not their
             # own intent string — synthesis output should reflect task fidelity,
@@ -183,7 +192,9 @@ class CEO:
             nodes = [Node(
                 node_id="n1", intent=task,
                 expected_output_fingerprint=task_emb,
-                why=Why(exploratory=exploratory, priors_used=priors_used),
+                why=Why(exploratory=exploratory, 
+                        priors_used=priors_used),
+                        directive_received=directive.reason if directive and directive.action != "surface" else "",
             )]
         return DAG(
             task=task, task_embedding=task_emb, topology=topology, depth=depth,
@@ -248,3 +259,21 @@ class CEO:
         if not e or sim < 0.3:
             return "none"
         return f"{e.entry_id}(sim={sim:.2f})"
+    
+    def _format_directive(self, directive) -> str:
+        """Render Delta's directive as prompt context for CEO."""
+        if directive is None or directive.action == "surface":
+            return ""
+        lines = [
+            f"DELTA DIRECTIVE ({directive.action.upper()}) — iteration {directive.iteration}:",
+            f"Reason: {directive.reason}",
+        ]
+        if directive.replan_hint:
+            lines.append(f"Guidance: {directive.replan_hint}")
+        if directive.refinement_targets:
+            lines.append(f"Focus on: {', '.join(directive.refinement_targets)}")
+        lines.append(
+            "Address this specific issue in your new plan. "
+            "State in WHY how you responded to this directive."
+        )
+        return "\n".join(lines)

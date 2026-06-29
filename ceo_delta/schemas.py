@@ -1,7 +1,12 @@
 """Core structural data schemas and AgentRegistry logic.
 
-Seeding specialized agents directly at min_confidence baseline to break 
+Seeding specialized agents directly at min_confidence baseline to break
 the monopolization trap from the generic agent entry.
+
+v0.4 changes:
+    - DeltaDirective dataclass: typed control signal from Delta to CEO
+    - Why dataclass enriched with directive_received and directive_response
+    - ExecutionTrace gains iteration field for multi-pass loop tracking
 """
 from __future__ import annotations
 
@@ -10,16 +15,38 @@ import statistics
 import time
 import uuid
 from dataclasses import dataclass, field, asdict
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
+
 
 def _id(prefix: str) -> str:
     return f"{prefix}_{uuid.uuid4().hex[:8]}"
+
+
+# ---------------------------------------------------------------------------
+# Delta -> CEO control signal
+# ---------------------------------------------------------------------------
+
+@dataclass
+class DeltaDirective:
+    action: Literal["surface", "refine", "replan"]
+    reason: str                          # human-readable explanation
+    replan_hint: str = ""                # injected into CEO prompt on replan
+    refinement_targets: List[str] = field(default_factory=list)  # node ids to fix
+    confidence: float = 1.0             # how confident Delta is in this directive
+    iteration: int = 0                  # which loop iteration produced this
+    escalated: bool = False             # True if LLM fallback was used
+
+
+# ---------------------------------------------------------------------------
+# Planning schemas
+# ---------------------------------------------------------------------------
 
 @dataclass
 class Roles:
     structural: str = "linear"
     functional: str = "generic"
     epistemic: str = "generalist"
+
 
 @dataclass
 class Why:
@@ -29,6 +56,9 @@ class Why:
     alternatives_rejected: str = ""
     priors_used: str = ""
     exploratory: bool = False
+    directive_received: str = ""   # what Delta told CEO this iteration
+    directive_response: str = ""   # how CEO interpreted and acted on it
+
 
 @dataclass
 class Node:
@@ -39,6 +69,7 @@ class Node:
     why: Why = field(default_factory=Why)
     expected_output_fingerprint: List[float] = field(default_factory=list)
     assigned_agent_id: Optional[str] = None
+
 
 @dataclass
 class DAG:
@@ -70,6 +101,11 @@ class DAG:
         max_deg = max(deg.values()) or 1
         return {nid: 0.5 + (d / max_deg) for nid, d in deg.items()}
 
+
+# ---------------------------------------------------------------------------
+# Execution schemas
+# ---------------------------------------------------------------------------
+
 @dataclass
 class NodeResult:
     node_id: str
@@ -83,6 +119,7 @@ class NodeResult:
     gated: bool
     error: Optional[str] = None
 
+
 @dataclass
 class ExecutionTrace:
     dag_id: str
@@ -91,6 +128,12 @@ class ExecutionTrace:
     total_tokens: int
     wallclock_s: float
     started_at: float = field(default_factory=time.time)
+    iteration: int = 0              # which loop iteration this trace belongs to
+
+
+# ---------------------------------------------------------------------------
+# Handbook schemas
+# ---------------------------------------------------------------------------
 
 @dataclass
 class HandbookEntry:
@@ -107,6 +150,14 @@ class HandbookEntry:
     contested: bool = False
     entry_id: str = field(default_factory=lambda: _id("hb"))
     updated_at: float = field(default_factory=time.time)
+    # directive effectiveness tracking
+    directive_outcomes: Dict[str, Dict] = field(default_factory=dict)
+    # key: directive action+reason hash, value: {fires: int, fixed: int}
+
+
+# ---------------------------------------------------------------------------
+# AgentCard schemas
+# ---------------------------------------------------------------------------
 
 @dataclass
 class PerformanceRecord:
@@ -122,6 +173,7 @@ class PerformanceRecord:
     centrality_weight: float
     timestamp: float = field(default_factory=time.time)
 
+
 @dataclass
 class AgentCardStatic:
     agent_id: str
@@ -132,6 +184,7 @@ class AgentCardStatic:
     protocols: List[str] = field(default_factory=lambda: ["https"])
     endpoint: str = ""
     registered_at: float = field(default_factory=time.time)
+
 
 @dataclass
 class AgentCardDynamic:
@@ -144,6 +197,7 @@ class AgentCardDynamic:
     last_revision: str = ""
     last_updated: float = field(default_factory=time.time)
     records: List[PerformanceRecord] = field(default_factory=list)
+
 
 @dataclass
 class AgentCard:
@@ -163,7 +217,10 @@ class AgentCard:
         return self.dynamic.confidence
 
     def supports_role(self, functional_role: str) -> bool:
-        return functional_role in self.static.supported_roles or "generic" in self.static.supported_roles
+        return (
+            functional_role in self.static.supported_roles
+            or "generic" in self.static.supported_roles
+        )
 
     def meets_security(self, required: float) -> bool:
         return self.static.security_clearance >= required
@@ -175,8 +232,13 @@ class AgentCard:
 
         total_w = sum(r.centrality_weight for r in d.records) or 1.0
         fp_score = sum(r.fingerprint_match * r.centrality_weight for r in d.records) / total_w
-        role_score = sum((1.0 if r.role_function_match else 0.0) * r.centrality_weight for r in d.records) / total_w
-        err_score = 1.0 - sum((1.0 if r.error else 0.0) * r.centrality_weight for r in d.records) / total_w
+        role_score = sum(
+            (1.0 if r.role_function_match else 0.0) * r.centrality_weight
+            for r in d.records
+        ) / total_w
+        err_score = 1.0 - sum(
+            (1.0 if r.error else 0.0) * r.centrality_weight for r in d.records
+        ) / total_w
         d.trust_score = round(0.4 * fp_score + 0.3 * role_score + 0.3 * err_score, 3)
 
         if record.error and record.centrality_weight > 1.0:
@@ -184,12 +246,19 @@ class AgentCard:
 
         role = record.functional_role
         if role not in d.per_role_stats:
-            d.per_role_stats[role] = {"runs": 0, "fp_mean": 0.0, "error_rate": 0.0, "role_match_rate": 0.0}
+            d.per_role_stats[role] = {
+                "runs": 0, "fp_mean": 0.0,
+                "error_rate": 0.0, "role_match_rate": 0.0,
+            }
         rs = d.per_role_stats[role]
         n = rs["runs"]
         rs["fp_mean"] = round((rs["fp_mean"] * n + record.fingerprint_match) / (n + 1), 3)
-        rs["error_rate"] = round((rs["error_rate"] * n + (1.0 if record.error else 0.0)) / (n + 1), 3)
-        rs["role_match_rate"] = round((rs["role_match_rate"] * n + (1.0 if record.role_function_match else 0.0)) / (n + 1), 3)
+        rs["error_rate"] = round(
+            (rs["error_rate"] * n + (1.0 if record.error else 0.0)) / (n + 1), 3
+        )
+        rs["role_match_rate"] = round(
+            (rs["role_match_rate"] * n + (1.0 if record.role_function_match else 0.0)) / (n + 1), 3
+        )
         rs["runs"] = n + 1
 
         cls = record.task_class
@@ -198,10 +267,13 @@ class AgentCard:
         cs = d.per_class_stats[cls]
         m = cs["runs"]
         cs["fp_mean"] = round((cs["fp_mean"] * m + record.fingerprint_match) / (m + 1), 3)
-        cs["error_rate"] = round((cs["error_rate"] * m + (1.0 if record.error else 0.0)) / (m + 1), 3)
+        cs["error_rate"] = round(
+            (cs["error_rate"] * m + (1.0 if record.error else 0.0)) / (m + 1), 3
+        )
         cs["runs"] = m + 1
 
         d.last_updated = time.time()
+
 
 class AgentRegistry:
     def __init__(self, cfg=None):
@@ -215,7 +287,9 @@ class AgentRegistry:
     def get(self, agent_id: str) -> Optional[AgentCard]:
         return self._cards.get(agent_id)
 
-    def resolve_for_node(self, functional_role: str, task_class: str = "reasoning") -> Optional[AgentCard]:
+    def resolve_for_node(
+        self, functional_role: str, task_class: str = "reasoning"
+    ) -> Optional[AgentCard]:
         candidates = [c for c in self._cards.values() if c.supports_role(functional_role)]
         if not candidates:
             return None
@@ -241,31 +315,39 @@ class AgentRegistry:
         out = []
         for c in self._cards.values():
             out.append({
-                "agent_id": c.agent_id, "name": c.static.name, "roles": c.static.supported_roles,
-                "security": c.static.security_clearance, "trust": c.trust_score, "confidence": c.confidence,
-                "hub_failures": c.dynamic.hub_failure_count, "per_role": c.dynamic.per_role_stats,
+                "agent_id": c.agent_id,
+                "name": c.static.name,
+                "roles": c.static.supported_roles,
+                "security": c.static.security_clearance,
+                "trust": c.trust_score,
+                "confidence": c.confidence,
+                "hub_failures": c.dynamic.hub_failure_count,
+                "per_role": c.dynamic.per_role_stats,
             })
         return out
 
     def _seed_default_agents(self) -> None:
         defaults = [
-            ("agent_retriever",   "Default Retriever",   ["retriever"],              0.5),
-            ("agent_synthesizer", "Default Synthesizer", ["synthesizer"],             0.5),
-            ("agent_verifier",    "Default Verifier",    ["verifier"],               0.7),
-            ("agent_generic",     "Default Generic",     ["generic", "retriever",
-                                                          "synthesizer", "verifier"], 0.5),
+            ("agent_retriever",   "Default Retriever",   ["retriever"],                          0.5),
+            ("agent_synthesizer", "Default Synthesizer", ["synthesizer"],                        0.5),
+            ("agent_verifier",    "Default Verifier",    ["verifier"],                           0.7),
+            ("agent_generic",     "Default Generic",
+             ["generic", "retriever", "synthesizer", "verifier"],                                0.5),
         ]
         min_conf = self.cfg.agent_card_min_confidence if self.cfg else 3
         for aid, name, roles, sec in defaults:
             card = AgentCard(
                 static=AgentCardStatic(
-                    agent_id=aid, name=name, description=f"Default {name} agent (seeded)",
-                    supported_roles=roles, security_clearance=sec,
+                    agent_id=aid,
+                    name=name,
+                    description=f"Default {name} agent (seeded)",
+                    supported_roles=roles,
+                    security_clearance=sec,
                 )
             )
-            # FIX: Pre-seed specialized cards at the min_confidence floor so they are immediately active candidate selections
             card.dynamic.confidence = min_conf
             self.register(card)
+
 
 def dag_to_dict(d: DAG) -> Dict[str, Any]:
     return asdict(d)
