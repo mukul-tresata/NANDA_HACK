@@ -1,26 +1,20 @@
 """The Loop — wires CEO -> Research -> Kernel -> Delta -> CEO -> ...
 
-v1.5 — Delta directive loop.
+v2.0 — Single-handbook architecture, TaskFingerprint threading.
 
-The run() method is now iterative. After each kernel execution, Delta
-audits and returns a (DeltaReport, DeltaDirective). The directive tells
-the orchestrator what to do next:
+Research no longer owns a handbook -- it is a stateless parser. The single
+remaining handbook (self.hb) is queried by CEO and written to by Delta,
+both keyed on the SAME structural fingerprint embedding (shape axes only:
+information_flow, epistemic_stance, output_contract, decomposability).
+This is what makes M2 (structural generalization across surface-different
+tasks) possible -- retrieval and writing finally happen in the same space.
 
-    surface → send answer to user, done
-    refine  → enrich task with gap info, CEO replans with directive hint
-    replan  → full replan from scratch with directive hint injected
-
-Loop terminates on:
-    - directive.action == "surface"
-    - max_iterations reached (answer from best iteration returned)
-    - error
+The fingerprint's two modifier axes (complexity, domain_volatility) never
+enter the embedding. complexity is rendered to CEO as a depth-cap prompt
+hint; domain_volatility is enforced in code via CEO.force_verifier() after
+planning, not left to prompt compliance.
 
 Directive history is recorded in RunResult for inspection and demo.
-
-Why enrichment:
-    CEO receives directive hint in prompt via directive_context field.
-    CEO's Why annotation captures directive_received and directive_response
-    so the handbook learns which replans actually fixed which failure modes.
 """
 from __future__ import annotations
 
@@ -34,7 +28,7 @@ from .handbook import Handbook
 from .kernel import Kernel
 from .llm import LLMClient
 from .reflection import Reflection, ReflectionLog, should_reflect
-from .research import Brief, Research, StructuredBrief
+from .research import Brief, Research, TaskFingerprint, TaskSpecifics
 from .runlog import RunLogger
 from .schemas import AgentRegistry, DAG, DeltaDirective, ExecutionTrace
 from . import bootstrap
@@ -45,7 +39,8 @@ class RunResult:
     task: str
     answer: str
     dag: DAG
-    structured_brief: StructuredBrief
+    fingerprint: TaskFingerprint
+    specifics: TaskSpecifics
     brief: Brief
     replanned: bool
     trace: ExecutionTrace
@@ -67,21 +62,22 @@ class Orchestrator:
     ):
         self.cfg = cfg or DEFAULT
         self.llm = LLMClient(self.cfg)
-        self.ceo_hb = Handbook("ceo", self.cfg, path=f"{workdir}/ceo_handbook.json")
-        self.research_hb = Handbook(
-            "research", self.cfg, path=f"{workdir}/research_handbook.json"
-        )
+
+        # Single handbook. Research no longer learns or owns state -- it's
+        # a stateless parser (see research.py v2.0). The old research_hb
+        # stored near-duplicate data with no distinct purpose.
+        self.hb = Handbook("planning", self.cfg, path=f"{workdir}/handbook.json")
         if self.cfg.seed_handbook:
-            bootstrap.ensure_seeded(self.ceo_hb)
-            bootstrap.ensure_seeded(self.research_hb)
+            bootstrap.ensure_seeded(self.hb)
+
         self.run_logger = RunLogger(run_log_path or f"{workdir}/runs.jsonl")
 
         self.registry = AgentRegistry(self.cfg)
-        self.ceo = CEO(self.ceo_hb, self.llm, self.registry, self.cfg)
-        self.research = Research(self.research_hb, self.llm, self.cfg)
+        self.ceo = CEO(self.hb, self.llm, self.registry, self.cfg)
+        self.research = Research(self.llm, self.cfg)
         self.kernel = Kernel(self.llm, self.registry, self.cfg)
         self.delta = Delta(
-            self.ceo_hb, self.research_hb, self.registry, self.cfg,
+            self.hb, self.registry, self.cfg,
             escalation_log_path=f"{workdir}/escalations.jsonl",
         )
         self.reflection = Reflection(
@@ -108,16 +104,20 @@ class Orchestrator:
                 f"Low handbook similarity ({sim:.2f}). Clarify scope before I plan."
             )
 
-        # upstream clarification — Research runs BEFORE CEO
-        structured_brief = self.research.clarify(task)
-        task_class = structured_brief.task_class
+        # Research parses raw intent into (species, specifics). Stateless --
+        # no handbook query happens here.
+        fingerprint, specifics = self.research.clarify(task)
+        # task_class (used for AgentRegistry bucketing) is now derived from
+        # epistemic_stance, a controlled vocabulary, rather than a free-text
+        # field the LLM invented independently.
+        task_class = fingerprint.epistemic_stance
 
         # --- iterative directive loop ---------------------------------------
         max_iter = self.cfg.max_ceo_eval_iterations
         directive_history: List[DeltaDirective] = []
         prev_delta_e: Optional[float] = None
         prev_directive: Optional[DeltaDirective] = None
-        current_task = structured_brief.structured_intent
+        current_task = specifics.structured_intent
         best_answer = ""
         best_report = None
         best_dag = None
@@ -126,23 +126,35 @@ class Orchestrator:
         brief = None
 
         for iteration in range(max_iter):
-            # CEO plans (directive hint injected if available)
+            # CEO plans (fingerprint drives retrieval + modifier context;
+            # directive hint injected if available)
             dag = self.ceo.plan(
                 current_task,
                 run_index=self.run_count,
                 task_class=task_class,
                 directive=prev_directive,
+                fingerprint=fingerprint,
             )
+
+            # Structural gate: domain_volatility forces a verifier node.
+            # Code-level guarantee, not a prompt suggestion -- CEO's plan
+            # is checked and patched if it skipped verification on a
+            # volatile-domain task.
+            if fingerprint.requires_verifier() and not any(
+                n.roles.functional == "verifier" for n in dag.nodes
+            ):
+                dag = self.ceo.force_verifier(dag)
 
             # secondary Research pass on first iteration only
             if iteration == 0:
-                brief = self.research.investigate(dag, structured_brief)
+                brief = self.research.investigate(dag, specifics)
                 if brief.triggers_replan:
                     dag = self.ceo.replan(
                         task,
                         brief.summary,
                         run_index=self.run_count,
                         task_class=task_class,
+                        fingerprint=fingerprint,
                     )
                     replanned = True
 
@@ -150,9 +162,11 @@ class Orchestrator:
             trace.iteration = iteration
             answer = self._final_answer(trace)
 
-            # Delta audit — returns (report, directive)
+            # Delta audit — returns (report, directive). hb writes are keyed
+            # on fingerprint.embedding, same space CEO retrieved from.
             report, directive = self.delta.audit(
                 dag, trace,
+                fingerprint=fingerprint,
                 brief_drift=brief.drift if brief else 0.0,
                 user_satisfaction=user_satisfaction if iteration == max_iter - 1 else None,
                 task_class=task_class,
@@ -181,12 +195,12 @@ class Orchestrator:
             if directive.action == "refine" and directive.replan_hint:
                 # enrich the task with gap information
                 current_task = (
-                    f"{structured_brief.structured_intent}\n\n"
+                    f"{specifics.structured_intent}\n\n"
                     f"[DELTA REFINEMENT REQUEST]: {directive.replan_hint}"
                 )
             elif directive.action == "replan":
                 # full reset to original intent — CEO will see directive in prompt
-                current_task = structured_brief.structured_intent
+                current_task = specifics.structured_intent
 
         # -------------------------------------------------------------------
 
@@ -194,7 +208,7 @@ class Orchestrator:
         self._persist()
 
         refl = None
-        ok, _ = should_reflect(self.run_count, self.ceo_hb, self.cfg)
+        ok, _ = should_reflect(self.run_count, self.hb, self.cfg)
         if ok:
             refl = self.reflection.run(self.run_count)
             self._persist()
@@ -203,7 +217,8 @@ class Orchestrator:
             task=task,
             answer=best_answer,
             dag=best_dag,
-            structured_brief=structured_brief,
+            fingerprint=fingerprint,
+            specifics=specifics,
             brief=brief,
             replanned=replanned,
             trace=best_trace,
@@ -227,21 +242,19 @@ class Orchestrator:
     def meta_feedback(self, task: str, satisfaction: float, note: str = "") -> str:
         from .embeddings import embed
         emb = embed(task)
-        entry, sim = self.ceo_hb.best_match(emb)
+        entry, sim = self.hb.best_match(emb)
         good = satisfaction >= 0.6
-        for hb in (self.ceo_hb, self.research_hb):
-            e, _ = hb.best_match(emb)
-            if e:
-                e.revision = (
-                    f"[user-satisfaction={satisfaction:.2f}] {note} | "
-                    + (e.revision or "")
-                )[:300]
-                hb.upsert_votes(
-                    emb, task[:120],
-                    e.topology_chosen or "linear",
-                    e.depth_chosen or 1,
-                    outcome_good=good,
-                )
+        if entry:
+            entry.revision = (
+                f"[user-satisfaction={satisfaction:.2f}] {note} | "
+                + (entry.revision or "")
+            )[:300]
+            self.hb.upsert_votes(
+                emb, task[:120],
+                entry.topology_chosen or "linear",
+                entry.depth_chosen or 1,
+                outcome_good=good,
+            )
         self._persist()
         return (
             f"Delta recorded satisfaction={satisfaction:.2f} for task region "
@@ -266,5 +279,4 @@ class Orchestrator:
         return trace.results[-1].output
 
     def _persist(self) -> None:
-        self.ceo_hb.save()
-        self.research_hb.save()
+        self.hb.save()

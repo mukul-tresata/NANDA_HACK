@@ -6,6 +6,7 @@
   python cli.py reflect                            # force a reflection session
   python cli.py demo                               # multi-run learning demo
   python cli.py handbook                           # dump handbook state
+  python cli.py probe "task"                       # check retrieval without burning LLM calls
 """
 from __future__ import annotations
 
@@ -28,6 +29,14 @@ def _print_run(r):
     for n in r.dag.nodes:
         print(f"   - {n.node_id} [{n.roles.structural}/{n.roles.functional}] "
               f"deps={n.dependencies} :: {n.intent[:70]}")
+    print(f"\nFINGERPRINT: flow={r.fingerprint.information_flow} "
+          f"epistemic={r.fingerprint.epistemic_stance} "
+          f"output={r.fingerprint.output_contract} "
+          f"decomposability={r.fingerprint.decomposability}")
+    print(f"  modifiers  : complexity={r.fingerprint.complexity} "
+          f"volatility={r.fingerprint.domain_volatility} "
+          f"depth_cap={r.fingerprint.depth_cap()} "
+          f"verifier_required={r.fingerprint.requires_verifier()}")
     print(f"\nRESEARCH brief drift={r.brief.drift:.2f} material={r.brief.materiality} "
           f"replanned={r.replanned}")
     print(f"\nMETRICS:")
@@ -67,12 +76,12 @@ def cmd_reflect(args):
 
 def cmd_handbook(args):
     orch = Orchestrator()
-    for hb in (orch.ceo_hb, orch.research_hb):
-        print(f"\n### {hb.name} handbook ({len(hb.entries)} entries)")
-        for e in hb.entries:
-            print(f"  [{e.entry_id}] topo={e.topology_chosen}({dict(e.topology_votes)}) "
-                  f"depth={e.depth_chosen} conf={e.confidence} "
-                  f"contested={e.contested} :: {e.task_summary[:50]}")
+    hb = orch.hb
+    print(f"\n### {hb.name} handbook ({len(hb.entries)} entries)")
+    for e in hb.entries:
+        print(f"  [{e.entry_id}] topo={e.topology_chosen}({dict(e.topology_votes)}) "
+              f"depth={e.depth_chosen} conf={e.confidence} "
+              f"contested={e.contested} :: {e.task_summary[:50]}")
 
 
 def cmd_demo(args):
@@ -109,12 +118,26 @@ def cmd_escalations(args):
 
 
 def cmd_probe(args):
+    """Check handbook retrieval against a task's structural fingerprint
+    without burning an LLM call on full planning. Still calls Research.clarify()
+    (one LLM call) to derive the fingerprint, since retrieval now happens in
+    fingerprint-embedding space, not raw task-string space.
+    """
     orch = Orchestrator()
-    from ceo_delta.embeddings import embed
-    task_emb = embed(args.task)
+    fingerprint, specifics = orch.research.clarify(args.task)
+
     print(f"\nPROBE: '{args.task}'")
-    print(f"\n--- CEO Handbook ---")
-    for e, sim in orch.ceo_hb.query(task_emb):
+    print(f"\nFINGERPRINT: flow={fingerprint.information_flow} "
+          f"epistemic={fingerprint.epistemic_stance} "
+          f"output={fingerprint.output_contract} "
+          f"decomposability={fingerprint.decomposability}")
+    print(f"  modifiers  : complexity={fingerprint.complexity} "
+          f"volatility={fingerprint.domain_volatility} "
+          f"depth_cap={fingerprint.depth_cap()} "
+          f"verifier_required={fingerprint.requires_verifier()}")
+
+    print(f"\n--- Handbook (retrieval space: shape-axis embedding) ---")
+    for e, sim in orch.hb.query(fingerprint.embedding):
         tag = "CONTESTED" if e.contested else f"conf={e.confidence}"
         would_lock = (
             sim >= 0.7
@@ -130,11 +153,7 @@ def cmd_probe(args):
                 fix_rate = v['fixed'] / v['fires'] if v['fires'] else 0
                 print(f"    directive '{k}': fires={v['fires']} "
                       f"fix_rate={fix_rate:.0%}")
-    print(f"\n--- Research Handbook ---")
-    for e, sim in orch.research_hb.query(task_emb):
-        tag = "CONTESTED" if e.contested else f"conf={e.confidence}"
-        print(f"  sim={sim:.3f} [{tag}] topo={e.topology_chosen} "
-              f"depth={e.depth_chosen} :: {e.task_summary[:80]}")
+
 
 def main(argv=None):
     p = argparse.ArgumentParser(prog="ceo-delta")

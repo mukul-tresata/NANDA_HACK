@@ -1,12 +1,19 @@
 """Delta Agent.
 
-v1.5 — Directive loop + error vector.
+v2.0 — Single-handbook, fingerprint-keyed writes.
 
-Delta now returns a (DeltaReport, DeltaDirective) tuple from audit().
-The directive closes the intra-run loop: orchestrator passes it to CEO,
-CEO replans with the hint injected into its prompt.
+Delta now writes to ONE handbook (passed in as `hb`), keyed on the
+TaskFingerprint's shape-axis embedding when one is supplied by Orchestrator,
+instead of the raw task-string embedding. This is the other half of the M2
+fix: CEO queries the handbook using the same fingerprint embedding (see
+ceo.py), so for the first time retrieval and writing operate in the same
+structural similarity space rather than two different surface-text spaces.
 
-Error vector:
+The second handbook (research_hb) is removed entirely -- it stored
+near-duplicate state with no distinct purpose once Research stopped being
+a learner (see research.py v2.0 docstring).
+
+Error vector (unchanged):
     Δe = w1*(1 - weighted_fp) + w2*weighted_role_mismatch + w3*weighted_echo
 
 The dominant term determines directive type:
@@ -40,16 +47,13 @@ from .embeddings import cosine
 from .handbook import Handbook
 from .schemas import (
     AgentRegistry, DAG, DeltaDirective, ExecutionTrace, NodeResult,
-    PerformanceRecord,
+    PerformanceRecord, TaskFingerprint,
 )
 
 # Error vector weights
 _W1_FP = 0.4        # fingerprint miss
 _W2_MISMATCH = 0.3  # role mismatch
 _W3_ECHO = 0.3      # echo rate
-
-# Surface threshold — if Δe below this, directive is "surface"
-_SURFACE_THRESHOLD = 0.2
 
 
 @dataclass
@@ -71,22 +75,28 @@ class DeltaReport:
 class Delta:
     def __init__(
         self,
-        ceo_hb: Handbook,
-        research_hb: Handbook,
+        hb: Handbook,
         registry: Optional[AgentRegistry] = None,
         cfg: Config | None = None,
         escalation_log_path: str = ".ceo_delta/escalations.jsonl",
     ):
-        self.ceo_hb = ceo_hb
-        self.research_hb = research_hb
+        self.hb = hb
         self.registry = registry
         self.cfg = cfg or DEFAULT
         self.escalation_log_path = escalation_log_path
+        # Surface threshold reads from config now -- previously a hardcoded
+        # module constant (_SURFACE_THRESHOLD=0.2) silently diverged from
+        # cfg.delta_surface_threshold (0.35). Kept at the 0.20 value per
+        # your call that 0.2 was the intended threshold -- but now there is
+        # exactly one place this number lives, so the two can never drift
+        # apart again.
+        self._surface_threshold = self.cfg.delta_surface_threshold
 
     def audit(
         self,
         dag: DAG,
         trace: ExecutionTrace,
+        fingerprint: Optional[TaskFingerprint] = None,
         brief_drift: float = 0.0,
         user_satisfaction: Optional[float] = None,
         task_class: str = "reasoning",
@@ -94,6 +104,14 @@ class Delta:
         prev_delta_e: Optional[float] = None,   # Δe from previous iteration
         prev_directive: Optional[DeltaDirective] = None,
     ) -> Tuple[DeltaReport, DeltaDirective]:
+
+        # Handbook key: structural fingerprint embedding (shape axes only)
+        # when Research supplied one. Falls back to raw task embedding only
+        # if Research was bypassed entirely.
+        hb_key = (
+            fingerprint.embedding if (fingerprint and fingerprint.embedding)
+            else dag.task_embedding
+        )
 
         weights = dag.centrality_weights()
 
@@ -113,21 +131,20 @@ class Delta:
         granular = self._granular(dag, trace, failure, weights, hub_failures)
         revision = self._make_revision(dag, structural, failure, verdict, hub_failures)
 
-        # write to handbooks
-        for hb in (self.ceo_hb, self.research_hb):
-            hb.upsert_votes(
-                task_embedding=dag.task_embedding,
-                task_summary=dag.task[:120],
-                topology=dag.topology,
-                depth=dag.depth,
-                outcome_good=good,
-                revision=revision,
-            )
+        # write to the single handbook, keyed on structural fingerprint
+        self.hb.upsert_votes(
+            task_embedding=hb_key,
+            task_summary=dag.task[:120],
+            topology=dag.topology,
+            depth=dag.depth,
+            outcome_good=good,
+            revision=revision,
+        )
 
         # track directive effectiveness if we're on iteration > 0
         if prev_directive and prev_delta_e is not None:
             self._record_directive_outcome(
-                dag, prev_directive, prev_delta_e, delta_e
+                hb_key, prev_directive, prev_delta_e, delta_e
             )
 
         # write performance records to AgentCards
@@ -182,7 +199,7 @@ class Delta:
         iteration: int,
     ) -> DeltaDirective:
         """
-        Updated directive ordering:
+        Directive ordering:
 
         1. Check deterministic failure rules FIRST.
         If a known failure mode exists, intervene immediately.
@@ -214,7 +231,7 @@ class Delta:
         # ---------------------------------------------------------
         # 2. SURFACE ONLY IF NO RULE MATCHED
         # ---------------------------------------------------------
-        if delta_e < _SURFACE_THRESHOLD and verdict != "poor":
+        if delta_e < self._surface_threshold and verdict != "poor":
             return DeltaDirective(
                 action="surface",
                 reason=f"Δe={delta_e:.3f} below threshold — output quality sufficient",
@@ -248,7 +265,6 @@ class Delta:
             return "refine"
         if semantic["weighted_fingerprint_match"] < 0.4:
             return "refine"
-        # default: if delta_e is high enough to not surface, replan
         return "replan" if delta_e > 0.5 else "refine"
 
     def _reason_slug(self, failure: Dict, semantic: Dict) -> str:
@@ -302,9 +318,6 @@ class Delta:
         }
         self._log_escalation(escalation_entry)
 
-        # For now: produce a generic replan directive without an LLM call.
-        # The escalation log captures this for future rule promotion.
-        # To enable LLM fallback: call self._llm_hint(escalation_entry) here.
         return DeltaDirective(
             action="replan",
             reason="novel_failure",
@@ -331,16 +344,15 @@ class Delta:
 
     def _record_directive_outcome(
         self,
-        dag: DAG,
+        hb_key: List[float],
         prev_directive: DeltaDirective,
         prev_delta_e: float,
         curr_delta_e: float,
     ) -> None:
         """Record whether the previous directive's replan actually improved Δe."""
         key = f"{prev_directive.action}:{prev_directive.reason}"
-        for hb in (self.ceo_hb, self.research_hb):
-            hb.upsert_directive_outcome(dag.task_embedding, key, prev_delta_e, curr_delta_e)
-            
+        self.hb.upsert_directive_outcome(hb_key, key, prev_delta_e, curr_delta_e)
+
     # -- AgentCard update ----------------------------------------------------
 
     def _update_agent_cards(

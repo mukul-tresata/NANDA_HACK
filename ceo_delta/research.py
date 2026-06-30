@@ -1,24 +1,26 @@
-"""Research Agent — upstream intent clarifier and resource mapper.
+"""Research Agent — upstream intent parser.
 
-Design change from v0.1: Research now runs BEFORE CEO plans, not after.
-The flow is:
+v2.0 — Species/Specifics split, single-handbook architecture.
 
-    User intent -> Research.clarify() -> StructuredBrief -> CEO.plan()
+Research is a PARSER, not a learner. It does one job: convert raw,
+unstructured user intent into two distinct outputs:
 
-Research translates raw user intent into a structured problem statement:
-  - what is the actual goal (not just what the user said)
-  - what constraints exist
-  - what resources / knowledge the executor will need
-  - what task class this looks like
+  1. TaskFingerprint ("task species") — the structural invariants that
+     determine what shape of plan is optimal. Four shape axes (embedded,
+     drive handbook retrieval) + two modifier axes (complexity, volatility
+     — never embedded, used as direct scalar/gate signals downstream).
 
-CEO then plans against the structured brief, not the raw user string.
+  2. TaskSpecifics ("task specifics") — the concrete, situational details
+     (real goal, constraints, resources) that don't generalize across
+     tasks but matter for refinement if something goes wrong mid-run.
 
-The old investigate() method (post-DAG brief) is kept as a secondary pass
-for cases where execution context materially changes understanding — but it
-is no longer the primary Research contribution.
+Research does NOT learn across runs. It has no handbook of its own.
+The single CEO handbook now stores entries keyed on fingerprint.embedding
+(structural similarity), not on raw task-string embeddings.
 
-Drift is still computed: cosine(original_intent, structured_intent).
-If drift exceeds cfg.replan_threshold after the secondary pass, CEO replans.
+The old dual-handbook design (ceo_hb + research_hb) is removed. Research
+never queried priors meaningfully different from CEO's own queries — it
+was duplicated state with no distinct purpose.
 """
 from __future__ import annotations
 
@@ -27,44 +29,80 @@ from typing import List, Optional
 
 from .config import Config, DEFAULT
 from .embeddings import cosine, embed
-from .handbook import Handbook
 from .llm import LLMClient
-from .schemas import DAG
+from .schemas import DAG, TaskFingerprint
 
-# -- upstream clarification (primary pass) ------------------------------------
+# -- upstream parsing (primary pass) ------------------------------------------
 
 _CLARIFY_SYSTEM = (
-    "You are the Research agent. Your job is to translate a raw user intent "
-    "into a structured, workable problem statement that a planning agent can "
-    "act on precisely. You do NOT plan. You do NOT execute. You clarify, "
-    "constrain, and resource-map."
+    "You are the Research agent. You are a PARSER, not a planner. Your job is "
+    "to convert raw, unstructured user intent into a structured task signature "
+    "along explicit invariant axes, plus the concrete specifics of this "
+    "particular task. You do NOT plan. You do NOT execute. Reason carefully "
+    "about each axis independently before answering."
 )
 
 _CLARIFY_PROMPT = """RAW USER INTENT: {task}
 
-RESEARCH HANDBOOK PRIORS (similar past tasks):
-{priors}
+Classify this task along SIX axes. Reason through each one independently —
+do not let one axis bias another.
 
-Your job:
-1. Identify the REAL goal behind the stated intent (what does success look like?)
-2. Identify constraints (time, scope, format, depth)
-3. Identify what knowledge/resources the executor will need
-4. Classify the task type (research-heavy / reasoning / tool-use / verification / simple)
-5. Restate the intent as a single clear, workable problem sentence
+SHAPE AXES (determine what plan topology/depth fits):
 
-Output ONLY this JSON:
+1. information_flow — how does information need to move through the plan?
+   - divergent: must gather/retrieve from multiple independent sources before combining
+   - convergent: multiple distinct inputs must be merged into one judgment
+   - sequential: each step strictly depends on the previous step's output
+   - recursive: the problem decomposes into smaller versions of itself
+
+2. epistemic_stance — what is the dominant cognitive act required?
+   - retrieval: finding/recalling existing facts or sources
+   - synthesis: combining multiple existing facts/sources into a coherent whole
+   - generation: producing genuinely novel content (not just recombination)
+   - verification: checking/auditing claims against evidence
+
+3. output_contract — what shape is the final deliverable?
+   - artifact: a single coherent piece of output (report, essay, explanation)
+   - comparison: a structured comparison between 2+ named things
+   - verification: a verdict/audit report on claims
+   - ranking: an ordered list with justified ordering
+
+4. decomposability — can subtasks run truly independently?
+   - independent: subtasks share no real dependency; genuine parallel fan-out is safe
+   - coupled: subtasks look separable on the surface but actually need to share
+     context/findings with each other to avoid redundant or contradictory work
+
+MODIFIER AXES (scale/gate the plan, do NOT change its shape):
+
+5. complexity — low | medium | high (depth of reasoning required, not task length)
+
+6. domain_volatility — how stable is the ground truth?
+   - stable: settled facts, unlikely to be disputed (math, established history)
+   - evolving: an active research area where claims update frequently
+   - contested: claims are actively disputed or no consensus exists
+
+SPECIFICS (do not generalize across tasks, but matter for this run):
+- real_goal: what success actually looks like for this specific task
+- constraints: time/scope/format/depth constraints, or empty list
+- resources_needed: what the executor needs to know or access
+
+Output ONLY this JSON, no other text:
 {{
-  "real_goal": "what success actually looks like for this task",
-  "constraints": ["list of constraints, or empty if none"],
-  "resources_needed": ["what the executor needs to know or have access to"],
-  "task_class": "research-heavy|reasoning|tool-use|verification|simple",
-  "structured_intent": "one precise sentence the planner should act on",
+  "information_flow": "divergent|convergent|sequential|recursive",
+  "epistemic_stance": "retrieval|synthesis|generation|verification",
+  "output_contract": "artifact|comparison|verification|ranking",
+  "decomposability": "independent|coupled",
   "complexity": "low|medium|high",
-  "notes": "anything the planner should know that doesn't fit above"
+  "domain_volatility": "stable|evolving|contested",
+  "real_goal": "...",
+  "constraints": ["..."],
+  "resources_needed": ["..."],
+  "structured_intent": "one precise sentence the planner should act on",
+  "notes": "anything that doesn't fit above"
 }}"""
 
 
-# -- secondary pass (post-DAG, legacy investigate behavior) -------------------
+# -- secondary pass (post-DAG, unchanged role, just retargeted) --------------
 
 _INVESTIGATE_SYSTEM = (
     "You are the Research agent doing a secondary check. A plan has been made. "
@@ -89,18 +127,16 @@ Output ONLY this JSON:
 
 
 @dataclass
-class StructuredBrief:
-    """Primary output of Research.clarify() — fed to CEO before planning."""
+class TaskSpecifics:
+    """Concrete, situational details. Do not generalize across tasks.
+    Preserved for refinement if Delta later flags an issue mid-run."""
     real_goal: str
     constraints: List[str]
     resources_needed: List[str]
-    task_class: str                  # research-heavy / reasoning / tool-use / verification / simple
-    structured_intent: str           # the single sentence CEO plans against
-    complexity: str                  # low / medium / high
+    structured_intent: str
     notes: str
-    original_task: str               # kept for drift computation
-    drift: float = 0.0               # cosine drift from raw intent to structured intent
-    triggers_replan: bool = False    # set by secondary pass if needed
+    original_task: str
+    drift: float = 0.0
 
 
 @dataclass
@@ -113,59 +149,60 @@ class Brief:
     materiality: str
     drift: float
     triggers_replan: bool
-    structured_brief: Optional[StructuredBrief] = None  # backref to primary pass
 
 
 class Research:
-    def __init__(self, handbook: Handbook, llm: LLMClient, cfg: Config | None = None):
-        self.hb = handbook
+    """Pure parser. No handbook. No learning. One-to-many mapping from
+    unstructured intent to (TaskFingerprint, TaskSpecifics)."""
+
+    def __init__(self, llm: LLMClient, cfg: Config | None = None):
         self.llm = llm
         self.cfg = cfg or DEFAULT
 
-    # -- PRIMARY PASS: upstream clarification (runs before CEO) ---------------
+    # -- PRIMARY PASS: parse into species + specifics -------------------------
 
-    def clarify(self, task: str) -> StructuredBrief:
-        """Translate raw user intent into a structured problem statement.
-        This is the main Research contribution — CEO receives this, not the
-        raw task string.
+    def clarify(self, task: str) -> tuple[TaskFingerprint, TaskSpecifics]:
+        """Convert raw user intent into (fingerprint, specifics).
+        No handbook query — Research does not learn or retrieve priors.
+        This is a stateless parse.
         """
         task_emb = embed(task)
-        priors = self._priors(task_emb)
         data = self.llm.chat_json([
             {"role": "system", "content": _CLARIFY_SYSTEM},
-            {"role": "user", "content": _CLARIFY_PROMPT.format(
-                task=task, priors=priors)},
+            {"role": "user", "content": _CLARIFY_PROMPT.format(task=task)},
         ], tag="research.clarify")
+
+        fingerprint = TaskFingerprint(
+            information_flow=str(data.get("information_flow", "sequential")),
+            epistemic_stance=str(data.get("epistemic_stance", "synthesis")),
+            output_contract=str(data.get("output_contract", "artifact")),
+            decomposability=str(data.get("decomposability", "coupled")),
+            complexity=str(data.get("complexity", "medium")),
+            domain_volatility=str(data.get("domain_volatility", "stable")),
+        )
+        # embed ONLY the shape axes -- modifiers never enter the embedding
+        fingerprint.embedding = embed(fingerprint.shape_string())
 
         structured_intent = str(data.get("structured_intent") or task)
         structured_emb = embed(structured_intent)
         drift = 1.0 - cosine(task_emb, structured_emb)
 
-        return StructuredBrief(
+        specifics = TaskSpecifics(
             real_goal=str(data.get("real_goal", "")),
             constraints=[str(x) for x in (data.get("constraints") or [])],
             resources_needed=[str(x) for x in (data.get("resources_needed") or [])],
-            task_class=str(data.get("task_class", "reasoning")),
             structured_intent=structured_intent,
-            complexity=str(data.get("complexity", "medium")),
             notes=str(data.get("notes", "")),
             original_task=task,
             drift=drift,
-            triggers_replan=False,  # primary pass never triggers replan
         )
+        return fingerprint, specifics
 
-    # -- SECONDARY PASS: post-DAG check (runs after CEO, replaces investigate) -
+    # -- SECONDARY PASS: post-DAG check (unchanged behavior) ------------------
 
-    def investigate(self, dag: DAG,
-                    structured_brief: Optional[StructuredBrief] = None) -> Brief:
-        """Secondary pass — checks whether the plan reveals anything that
-        materially changes task understanding. Triggers CEO replan if so.
-
-        structured_brief is passed in from the primary pass so Research can
-        compare against it rather than the raw task string.
-        """
+    def investigate(self, dag: DAG, specifics: Optional[TaskSpecifics] = None) -> Brief:
         intents = "\n".join(f"- {n.node_id}: {n.intent}" for n in dag.nodes)
-        si = structured_brief.structured_intent if structured_brief else dag.task
+        si = specifics.structured_intent if specifics else dag.task
 
         data = self.llm.chat_json([
             {"role": "system", "content": _INVESTIGATE_SYSTEM},
@@ -174,7 +211,6 @@ class Research:
         ], tag="research.investigate")
 
         refined = str(data.get("refined_intent") or si)
-        # drift measured against structured_intent, not raw task
         base_emb = embed(si)
         sim = cosine(base_emb, embed(refined))
         drift = 1.0 - sim
@@ -187,17 +223,4 @@ class Research:
             materiality=str(data.get("materiality", "low")),
             drift=drift,
             triggers_replan=triggers,
-            structured_brief=structured_brief,
-        )
-
-    # -- helpers --------------------------------------------------------------
-
-    def _priors(self, task_emb) -> str:
-        matches = self.hb.query(task_emb)
-        if not matches:
-            return "(none)"
-        return "\n".join(
-            f"- sim={s:.2f} [{e.task_class if hasattr(e, 'task_class') else 'unknown'}]: "
-            f"{e.revision or e.task_summary[:80]}"
-            for e, s in matches
         )

@@ -23,19 +23,19 @@ from .schemas import HandbookEntry
 
 # task-class prototypes -> recommended (topology, depth) from the papers
 _SEEDS = [
-    ("research heavy task retrieve recent papers survey literature gather sources",
+    ("information_flow:divergent epistemic_stance:retrieval output_contract:artifact decomposability:independent",
      "fan-out", 2, "Plan-then-Execute: parallel retrieval branches before synthesis"),
-    ("multi step reasoning analysis decompose problem into subproblems",
+    ("information_flow:recursive epistemic_stance:synthesis output_contract:artifact decomposability:coupled",
      "hierarchical", 3, "Plan-then-Execute: hierarchical plan for decomposable reasoning"),
-    ("latency sensitive fast turnaround quick answer time critical",
+    ("information_flow:sequential epistemic_stance:retrieval output_contract:artifact decomposability:independent",
      "fan-out", 1, "Latency-Aware DAG: short critical path, parallel where possible"),
-    ("tool use authorize external actions execute api calls side effects",
+    ("information_flow:sequential epistemic_stance:generation output_contract:artifact decomposability:coupled",
      "linear", 2, "KAIJU: intent-gated execution, decouple planning from tool firing"),
-    ("verify validate check correctness audit cross examine claims",
+    ("information_flow:convergent epistemic_stance:verification output_contract:verification decomposability:coupled",
      "join", 2, "adversarial verification: multiple checkers join into a verdict"),
-    ("simple direct factual single answer lookup definition",
+    ("information_flow:sequential epistemic_stance:retrieval output_contract:artifact decomposability:independent",
      "linear", 1, "trivial task: shallow linear plan, avoid over-planning"),
-    ("strategy optimization improve policy meta learning adapt over runs",
+    ("information_flow:recursive epistemic_stance:generation output_contract:ranking decomposability:coupled",
      "hierarchical", 3, "POLARIS: meta-learner pattern, deeper plan to expose decision points"),
 ]
 

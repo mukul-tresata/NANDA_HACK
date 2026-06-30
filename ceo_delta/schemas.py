@@ -37,6 +37,45 @@ class DeltaDirective:
     escalated: bool = False             # True if LLM fallback was used
 
 
+@dataclass
+class TaskFingerprint:
+    """Structural signature of a task, produced by Research.clarify().
+
+    Shape axes (embedded -> drive handbook retrieval / CEO topology+depth priors):
+        information_flow : divergent | convergent | sequential | recursive
+        epistemic_stance : retrieval | synthesis | generation | verification
+        output_contract  : artifact | comparison | verification | ranking
+        decomposability   : independent | coupled
+
+    Modifier axes (NOT embedded -> direct scalar/gate, never used for similarity):
+        complexity        : low | medium | high      -> scales suggested depth
+        domain_volatility : stable | evolving | contested -> gates mandatory verifier
+    """
+    information_flow: str = "sequential"
+    epistemic_stance: str = "synthesis"
+    output_contract: str = "artifact"
+    decomposability: str = "coupled"
+    complexity: str = "medium"
+    domain_volatility: str = "stable"
+    embedding: List[float] = field(default_factory=list)  # shape-axes embedding only
+
+    def shape_string(self) -> str:
+        """The string that gets embedded -- shape axes ONLY, never modifiers."""
+        return (
+            f"information_flow:{self.information_flow} "
+            f"epistemic_stance:{self.epistemic_stance} "
+            f"output_contract:{self.output_contract} "
+            f"decomposability:{self.decomposability}"
+        )
+
+    def depth_cap(self) -> int:
+        """Complexity scales suggested depth. Deterministic, not LLM-inferred."""
+        return {"low": 2, "medium": 3, "high": 4}.get(self.complexity, 3)
+
+    def requires_verifier(self) -> bool:
+        """Volatility gates mandatory verification. Deterministic, not a suggestion."""
+        return self.domain_volatility in ("evolving", "contested")
+
 # ---------------------------------------------------------------------------
 # Planning schemas
 # ---------------------------------------------------------------------------

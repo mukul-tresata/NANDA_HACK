@@ -3,23 +3,23 @@
 Receives user intent -> queries handbook -> resolves agents via AgentRegistry
 -> plans the full DAG before any execution fires.
 
-v0.3 — AgentCard integration.
+v2.0 — TaskFingerprint integration.
 
-After building the DAG structure, CEO calls AgentRegistry.resolve_for_node()
-for each node. The registry filters by:
-    1. functional role match
-    2. security clearance >= task security requirement
-    3. confidence floor (cold-start guard)
-    4. trust score ranking, task-class-specific where possible
+CEO now receives a TaskFingerprint from Research (via Orchestrator) for
+each plan() call. The fingerprint's shape-axis embedding (information_flow,
+epistemic_stance, output_contract, decomposability) replaces the raw task-
+string embedding as the handbook retrieval key -- this is what makes
+structural generalization (M2) possible: two tasks with different surface
+phrasing but identical shape axes now retrieve the same prior.
 
-The resolved agent_id is stored in node.assigned_agent_id.
-Kernel reads this to dispatch to the right agent and inject card context.
+The fingerprint's two modifier axes (complexity, domain_volatility) are
+NEVER embedded and never enter retrieval. They are rendered as direct
+prompt context (complexity -> depth-cap suggestion) or enforced in code
+after planning (domain_volatility -> force_verifier()).
 
-If no agent passes the filters, node.assigned_agent_id stays None and
-Kernel falls back to the generic LLM — same behavior as before.
-
-v0.4 changes:
-    - Prior-confidence steering: high-confidence handbook priors now lock in
+v0.4 changes (retained):
+    - AgentCard integration via AgentRegistry.resolve_for_node()
+    - Prior-confidence steering: high-confidence handbook priors lock in
       topology/depth by default; LLM must justify deviation explicitly.
     - Synthesizer fingerprint fix: synthesizer nodes fingerprint against the
       parent task embedding, not the node intent string.
@@ -32,7 +32,7 @@ from .config import Config, DEFAULT
 from .embeddings import embed
 from .handbook import Handbook
 from .llm import LLMClient
-from .schemas import AgentRegistry, DAG, Node, Roles, Why
+from .schemas import AgentRegistry, DAG, Node, Roles, TaskFingerprint, Why
 
 _SYSTEM = (
     "You are the CEO planning agent in a multi-agent system. You ONLY plan; you "
@@ -99,9 +99,19 @@ class CEO:
     def plan(self, task: str, run_index: int = 0, *,
              force_exploratory: bool = False,
              task_class: str = "reasoning",
-             directive=None) -> DAG:
+             directive=None,
+             fingerprint: Optional[TaskFingerprint] = None) -> DAG:
+        # Retrieval key: structural fingerprint embedding when available
+        # (shape axes only -- information_flow, epistemic_stance,
+        # output_contract, decomposability). Falls back to raw task
+        # embedding only if no fingerprint was supplied (e.g. internal
+        # replan() calls that don't re-derive one).
         task_emb = embed(task)
-        priors = self._format_priors(task_emb)
+        retrieval_emb = (
+            fingerprint.embedding if (fingerprint and fingerprint.embedding) else task_emb
+        )
+
+        priors = self._format_priors(retrieval_emb)
         agent_summary = self._format_agent_summary(task_class)
         exploratory = force_exploratory or run_index < self.cfg.cold_start_runs
         mode_note = (
@@ -110,21 +120,24 @@ class CEO:
             if exploratory else
             "STANDARD MODE: lean on the priors where confident."
         )
-        prior_lock = self._prior_lock_note(task_emb, exploratory)
+        prior_lock = self._prior_lock_note(retrieval_emb, exploratory)
         directive_context = self._format_directive(directive)
+        modifier_context = self._format_modifiers(fingerprint)
+        full_context = "\n".join(filter(None, [directive_context, modifier_context]))
+
         prompt = _PROMPT.format(
             task=task, priors=priors,
             agent_summary=agent_summary, mode_note=mode_note,
             prior_lock=prior_lock,
-            directive_context=directive_context,
+            directive_context=full_context,
         )
         data = self.llm.chat_json([
             {"role": "system", "content": _SYSTEM},
             {"role": "user", "content": prompt},
         ], tag="ceo.replan" if getattr(self, "_in_replan", False) else "ceo.plan")
         dag = self._build_dag(
-            task, task_emb, data, exploratory,
-            priors_used=self._priors_id(task_emb),
+            task, retrieval_emb, data, exploratory,
+            priors_used=self._priors_id(retrieval_emb),
             directive=directive,
         )
         # resolve agents for each node AFTER DAG structure is set
@@ -132,15 +145,48 @@ class CEO:
         return dag
 
     def replan(self, task: str, brief_summary: str,
-               run_index: int = 0, task_class: str = "reasoning") -> DAG:
+               run_index: int = 0, task_class: str = "reasoning",
+               fingerprint: Optional[TaskFingerprint] = None) -> DAG:
         self._in_replan = True
         try:
             enriched = f"{task}\n\n[research brief]: {brief_summary}"
             dag = self.plan(enriched, run_index=run_index,
-                            force_exploratory=False, task_class=task_class)
+                            force_exploratory=False, task_class=task_class,
+                            fingerprint=fingerprint)
             dag.task = task
         finally:
             self._in_replan = False
+        return dag
+
+    # -- mandatory verifier enforcement ----------------------------------------
+    def force_verifier(self, dag: DAG) -> DAG:
+        """Append a mandatory verifier node when domain_volatility required
+        one and CEO's plan omitted it. Code-level guarantee, not a prompt
+        suggestion -- this is what makes verification non-optional for
+        volatile-domain tasks regardless of what the LLM chose to plan.
+        """
+        terminal_ids = [
+            n.node_id for n in dag.nodes
+            if not any(n.node_id in other.dependencies for other in dag.nodes)
+        ]
+        verifier = Node(
+            node_id=f"n{len(dag.nodes) + 1}_verify",
+            intent=(
+                "Audit all upstream claims for unverified statistics, figures, "
+                "or causal claims lacking cited sources."
+            ),
+            roles=Roles(structural="join", functional="verifier", epistemic="specialist"),
+            dependencies=terminal_ids,
+            why=Why(
+                task_type_recognized="forced-verifier",
+                topology_chosen=dag.topology,
+                depth_chosen=dag.depth,
+                alternatives_rejected="none -- structurally mandated by domain_volatility",
+            ),
+            expected_output_fingerprint=dag.task_embedding,
+        )
+        dag.nodes.append(verifier)
+        dag.depth += 1
         return dag
 
     # -- agent resolution -----------------------------------------------------
@@ -192,9 +238,9 @@ class CEO:
             nodes = [Node(
                 node_id="n1", intent=task,
                 expected_output_fingerprint=task_emb,
-                why=Why(exploratory=exploratory, 
-                        priors_used=priors_used),
-                        directive_received=directive.reason if directive and directive.action != "surface" else "",
+                why=Why(exploratory=exploratory,
+                        priors_used=priors_used,
+                        directive_received=directive.reason if directive and directive.action != "surface" else ""),
             )]
         return DAG(
             task=task, task_embedding=task_emb, topology=topology, depth=depth,
@@ -202,7 +248,7 @@ class CEO:
             why_depth=str(data.get("why_depth", "")), exploratory=exploratory,
         )
 
-    def _prior_lock_note(self, task_emb, exploratory: bool) -> str:
+    def _prior_lock_note(self, retrieval_emb, exploratory: bool) -> str:
         """If a high-confidence prior exists, tell the LLM to lock it in.
 
         Only fires in standard mode (not exploratory) — during cold start we
@@ -210,7 +256,7 @@ class CEO:
         """
         if exploratory:
             return ""
-        entry, sim = self.hb.best_match(task_emb)
+        entry, sim = self.hb.best_match(retrieval_emb)
         if (entry
                 and sim >= 0.7
                 and entry.confidence >= self.cfg.cold_start_runs
@@ -224,8 +270,8 @@ class CEO:
             )
         return ""
 
-    def _format_priors(self, task_emb) -> str:
-        matches = self.hb.query(task_emb)
+    def _format_priors(self, retrieval_emb) -> str:
+        matches = self.hb.query(retrieval_emb)
         if not matches:
             return "(none — cold start)"
         lines = []
@@ -234,6 +280,32 @@ class CEO:
             lines.append(
                 f"- sim={sim:.2f} [{tag}] topo={e.topology_chosen} "
                 f"depth={e.depth_chosen} :: {e.revision or e.task_summary[:80]}"
+            )
+        return "\n".join(lines)
+
+    def _format_modifiers(self, fingerprint: Optional[TaskFingerprint]) -> str:
+        """Render complexity + decomposability + volatility as direct prompt
+        context. These are deterministic outputs from Research, not things
+        the LLM should re-infer from the raw task string."""
+        if fingerprint is None:
+            return ""
+        lines = [
+            f"COMPLEXITY (from Research): {fingerprint.complexity} "
+            f"-> suggested max depth is {fingerprint.depth_cap()}. "
+            f"Do not exceed this without a concrete structural reason.",
+        ]
+        if fingerprint.decomposability == "coupled":
+            lines.append(
+                "DECOMPOSABILITY: coupled -- subtasks that look independent "
+                "may actually need shared context. If you use fan-out, make sure "
+                "sibling node intents are differentiated enough to avoid echo, "
+                "or consider an earlier join."
+            )
+        if fingerprint.requires_verifier():
+            lines.append(
+                f"DOMAIN VOLATILITY: {fingerprint.domain_volatility} -- a verifier "
+                f"node is MANDATORY in this plan. If you omit it, it will be "
+                f"force-inserted after planning."
             )
         return "\n".join(lines)
 
@@ -254,12 +326,12 @@ class CEO:
             )
         return "\n".join(lines)
 
-    def _priors_id(self, task_emb) -> str:
-        e, sim = self.hb.best_match(task_emb)
+    def _priors_id(self, retrieval_emb) -> str:
+        e, sim = self.hb.best_match(retrieval_emb)
         if not e or sim < 0.3:
             return "none"
         return f"{e.entry_id}(sim={sim:.2f})"
-    
+
     def _format_directive(self, directive) -> str:
         """Render Delta's directive as prompt context for CEO."""
         if directive is None or directive.action == "surface":
@@ -273,7 +345,8 @@ class CEO:
         if directive.refinement_targets:
             lines.append(f"Focus on: {', '.join(directive.refinement_targets)}")
         lines.append(
-            "Address this specific issue in your new plan. "
-            "State in WHY how you responded to this directive."
+            "You MUST structurally change your plan to fix this exact issue. "
+            "Vague adjustments are not acceptable. "
+            "In directive_response, state concretely what you changed and why."
         )
         return "\n".join(lines)

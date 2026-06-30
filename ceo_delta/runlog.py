@@ -2,12 +2,15 @@
 
 Writes one JSON record per run to a .jsonl file (append-only).
 Each record captures everything needed to diagnose failure modes:
-  - structured brief (Research's interpretation of the task)
+  - task fingerprint (Research's structural parse: species + specifics)
   - DAG (topology, depth, nodes with why-reasoning)
   - all node outputs with metrics
   - all LLM calls (prompt, response, latency, tag)
   - Delta report (verdict, failure metrics, hub failures)
   - reflection log if it fired
+
+v2.0 — updated for TaskFingerprint/TaskSpecifics split (replaces the old
+StructuredBrief single-object log entry).
 
 Usage:
     logger = RunLogger("path/to/runs.jsonl")
@@ -45,16 +48,24 @@ class RunLogger:
             "task": result.task,
             "task_label": getattr(result, "_task_label", None),
 
-            # Research upstream clarification
-            "structured_brief": {
-                "real_goal":         result.structured_brief.real_goal,
-                "constraints":       result.structured_brief.constraints,
-                "resources_needed":  result.structured_brief.resources_needed,
-                "task_class":        result.structured_brief.task_class,
-                "structured_intent": result.structured_brief.structured_intent,
-                "complexity":        result.structured_brief.complexity,
-                "notes":             result.structured_brief.notes,
-                "drift":             result.structured_brief.drift,
+            # Research upstream parse — species (TaskFingerprint) + specifics
+            "fingerprint": {
+                "information_flow":   result.fingerprint.information_flow,
+                "epistemic_stance":   result.fingerprint.epistemic_stance,
+                "output_contract":    result.fingerprint.output_contract,
+                "decomposability":    result.fingerprint.decomposability,
+                "complexity":         result.fingerprint.complexity,
+                "domain_volatility":  result.fingerprint.domain_volatility,
+                "depth_cap":          result.fingerprint.depth_cap(),
+                "requires_verifier":  result.fingerprint.requires_verifier(),
+            },
+            "specifics": {
+                "real_goal":         result.specifics.real_goal,
+                "constraints":       result.specifics.constraints,
+                "resources_needed":  result.specifics.resources_needed,
+                "structured_intent": result.specifics.structured_intent,
+                "notes":             result.specifics.notes,
+                "drift":             result.specifics.drift,
             },
 
             # Secondary brief + replan
