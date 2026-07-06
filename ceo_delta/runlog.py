@@ -133,7 +133,18 @@ class RunLogger:
                 "centrality":         result.report.centrality,
                 "hub_failures":       result.report.hub_failures,
                 "granular_entries":   result.report.granular_entries,
+                # v3.0 EF — the calibration-relevant fields
+                "ef_tensor":          getattr(result.report, "ef_tensor", None),
+                "required_structure": getattr(result.report, "required_structure", None),
             },
+
+            # v3.0 EF descent — per-iteration trajectory (E per axis each
+            # iteration) + which move ran. This is the calibration corpus:
+            # it captures PRE-correction values (an axis while still violated),
+            # which final_ef alone never shows.
+            "ef_trace":     getattr(result, "ef_trace", []),
+            "ef_move_log":  getattr(result, "ef_move_log", []),
+            "ef_detail":    getattr(result, "ef_detail", []),
 
             # Reflection (if it fired this run)
             "reflection": (

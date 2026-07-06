@@ -44,7 +44,12 @@ def _print_run(r):
     print(f"  runtime    : {r.report.runtime}")
     print(f"  failure    : {r.report.failure}")
     print(f"  semantic   : {r.report.semantic}")
-    print(f"  verdict    : {r.report.verdict}")
+    if getattr(r.report, "ef_tensor", None):
+        print(f"  EF (E)     : {r.report.ef_tensor}")
+        print(f"  required(F): {r.report.required_structure}")
+    if getattr(r.report, "q_tensor", None):
+        print(f"  Q (content): {r.report.q_tensor}  [groundedness/relevance errors, RAGAS generation-side]")
+    print(f"  verdict    : {r.report.verdict}  (combined structural+content verdict)")
     print(f"  CEO  fb    : {r.report.ceo_feedback}")
     print(f"  RSCH fb    : {r.report.research_feedback}")
     print(f"  granular   : {r.report.granular_entries}")
@@ -54,12 +59,25 @@ def _print_run(r):
               f"resolved={r.reflection.resolved} notes={r.reflection.notes}")
     print(f"\nANSWER:\n{r.answer[:1200]}")
     print("=" * 70)
-    print(f"\nDIRECTIVE LOOP: iterations={r.iterations} final_Δe={r.final_delta_e:.4f}")
+    print(f"\nDIRECTIVE LOOP: iterations={r.iterations} final_worst_axis={r.final_delta_e:.4f}")
     for i, d in enumerate(r.directive_history):
         esc = " [ESCALATED]" if d.escalated else ""
         print(f"  iter {d.iteration}: {d.action.upper()} — {d.reason}{esc}")
         if d.replan_hint and d.action != "surface":
-            print(f"    hint: {d.replan_hint[:120]}")
+            print(f"    hint: {d.replan_hint[:140]}")
+
+    # v3.0: per-axis coordinate-descent trace — the legible learning signal.
+    if getattr(r, "ef_trace", None):
+        print(f"\nEF DESCENT (E per axis, per iteration):")
+        print(f"  {'iter':<6}{'partition':<12}{'flow':<10}{'role':<10}{'scale':<10}")
+        for i, e in enumerate(r.ef_trace):
+            print(f"  {i:<6}{e['partition']:<12}{e['flow']:<10}{e['role']:<10}{e['scale']:<10}")
+        for m in r.ef_move_log:
+            tag = "✓ converged" if m["converged"] else ("↓ improved" if m["improved"] else "✗ no drop")
+            print(f"    move [{m['axis']}] {m['move']}: {m['before']} → {m['after']}  {tag}")
+            for se in m.get("side_effects", []):
+                print(f"      ⚠ side effect: pushed [{se['axis']}] over threshold "
+                      f"(seen {se['count']}x for this fingerprint)")
 
 
 def cmd_run(args):

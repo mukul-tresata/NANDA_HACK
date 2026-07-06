@@ -1,13 +1,13 @@
-"""LLM client for the vLLM OpenAI-compatible server.
+"""LLM client — vLLM OpenAI-compatible backend (self-hosted, Qwen-family).
 
-Handles two quirks of the served reasoning model (Qwen3.6-35B-A3B):
-  * the answer arrives in `message.content` but the model burns tokens in a
-    separate `reasoning` channel first, so we request generous max_tokens;
-  * JSON is requested in-prompt and extracted defensively (the model wraps it
-    in prose / fences sometimes).
+JSON is requested in-prompt and extracted defensively (the model wraps it
+in prose / fences sometimes).
 
 If the server is unreachable and config.llm_allow_stub is set, a deterministic
 stub keeps the whole pipeline runnable offline (demos, CI, cold-start tests).
+
+To switch back to Anthropic: uncomment the ANTHROPIC BACKEND block below,
+comment out the VLLM BACKEND block, and set config.anthropic_api_key.
 """
 from __future__ import annotations
 
@@ -15,8 +15,8 @@ import json
 import re
 import urllib.error
 import urllib.request
+# import anthropic             # ANTHROPIC BACKEND
 from typing import Any, Dict, List, Optional
-import os
 from .config import Config, DEFAULT
 
 
@@ -27,9 +27,17 @@ class LLMError(RuntimeError):
 class LLMClient:
     def __init__(self, cfg: Config | None = None):
         self.cfg = cfg or DEFAULT
-        self._server_ok: Optional[bool] = None
         self.total_tokens = 0
         self._call_log: list = []
+        # self._client = None  # lazy-init (ANTHROPIC BACKEND)
+
+    def _get_client(self):
+        # ANTHROPIC BACKEND -- only needed if grounding_backend="web_search"
+        # (Claude's server-side tool has no vLLM/Qwen equivalent, so this is
+        # dormant unless someone explicitly re-enables that grounding backend
+        # with an anthropic_api_key set).
+        import anthropic
+        return anthropic.Anthropic(api_key=self.cfg.anthropic_api_key)
 
     def reset_call_log(self) -> None:
         self._call_log = []
@@ -47,7 +55,8 @@ class LLMClient:
         stub_used = False
         try:
             response = self._chat_remote(messages, max_tokens, temperature)
-        except (urllib.error.URLError, urllib.error.HTTPError, LLMError, TimeoutError, OSError) as e:
+        except (urllib.error.URLError, urllib.error.HTTPError, LLMError, TimeoutError, OSError) as e:  # VLLM BACKEND
+        # except Exception as e:  # ANTHROPIC BACKEND
             print("DEBUG ERROR:", type(e).__name__, str(e))
             if self.cfg.llm_allow_stub:
                 response = self._chat_stub(messages)
@@ -67,40 +76,55 @@ class LLMClient:
     def chat_json(self, messages: List[Dict[str, str]], *, max_tokens: int | None = None,
                   tag: str = "") -> Any:
         """Chat then parse JSON out of the reply, tolerant of fences/prose."""
-        raw = self.chat(messages, max_tokens=max_tokens, temperature=0.0, tag=tag)
+        raw = self.chat(messages, max_tokens=max_tokens, tag=tag)
         return extract_json(raw)
 
     # -- remote ---------------------------------------------------------------
     def _chat_remote(self, messages, max_tokens, temperature) -> str:
-        # OpenAI-compatible endpoint: system message stays in the messages array
+        # ---- VLLM BACKEND ----
         payload = {
             "model": self.cfg.llm_model,
             "max_tokens": max_tokens or self.cfg.llm_max_tokens,
+            # deterministic by default (cfg.llm_temperature=0.0); explicit
+            # override wins. This is what makes the fingerprint/plan
+            # reproducible run-to-run -- the backbone of every learning claim.
             "temperature": self.cfg.llm_temperature if temperature is None else temperature,
-            "messages": messages,  # system message passed inline, no special handling needed
-            "chat_template_kwargs" : {"enable_thinking": False},
+            "messages": messages,
+            "chat_template_kwargs": {"enable_thinking": False},
         }
-
         body = json.dumps(payload).encode()
         req = urllib.request.Request(
-            f"{self.cfg.llm_base_url}/chat/completions",  # OpenAI-compatible path
+            f"{self.cfg.llm_base_url}/chat/completions",
             data=body,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": "Bearer EMPTY",
-            },
+            headers={"Content-Type": "application/json", "Authorization": "Bearer EMPTY"},
             method="POST",
         )
         with urllib.request.urlopen(req, timeout=self.cfg.llm_timeout_s) as resp:
             data = json.loads(resp.read().decode())
-
         usage = data.get("usage") or {}
         self.total_tokens += int(usage.get("prompt_tokens", 0)) + int(usage.get("completion_tokens", 0))
-        # OpenAI format: choices[0].message.content
-        content = data["choices"][0]["message"]["content"]
+        content = data["choices"][0]["message"]["content"]  # OpenAI format
         if not content:
             raise LLMError("empty content from model")
         return content.strip()
+
+        # ---- ANTHROPIC BACKEND (uncomment to switch back to Claude) ----
+        # system_parts = [m["content"] for m in messages if m["role"] == "system"]
+        # user_messages = [m for m in messages if m["role"] != "system"]
+        # kwargs: dict = {
+        #     "model": self.cfg.llm_model,
+        #     "max_tokens": max_tokens or self.cfg.llm_max_tokens,
+        #     "messages": user_messages,
+        #     "temperature": self.cfg.llm_temperature if temperature is None else temperature,
+        # }
+        # if system_parts:
+        #     kwargs["system"] = system_parts[0]
+        # resp = self._get_client().messages.create(**kwargs)
+        # self.total_tokens += resp.usage.input_tokens + resp.usage.output_tokens
+        # content = resp.content[0].text if resp.content else ""
+        # if not content:
+        #     raise LLMError("empty content from model")
+        # return content.strip()
 
     # -- stub -----------------------------------------------------------------
     def _chat_stub(self, messages) -> str:

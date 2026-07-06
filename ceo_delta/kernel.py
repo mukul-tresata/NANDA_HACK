@@ -103,16 +103,36 @@ class Kernel:
             "Produce the artifact for this node."
         )
 
+        # Timer/cost baseline start BEFORE grounding so grounded nodes report
+        # real latency (was: timer started after the search call -> p50=0.0).
         before = self.llm.total_tokens
         t = time.time()
-        try:
-            out = self.llm.chat([
-                {"role": "system", "content": _SYSTEM},
-                {"role": "user", "content": prompt},
-            ], max_tokens=1500, tag=f"kernel.{node.node_id}")
+
+        # v3.1: retriever-role nodes ground through the retrieve() seam (web
+        # search today, NANDA later) instead of hallucinating. Falls through to
+        # plain generation if grounding is disabled, keyless, or returns empty.
+        grounded = None
+        if node.roles.functional == "retriever" and getattr(self.cfg, "grounding_enabled", True):
+            from .grounding import retrieve
+            grounded = retrieve(node.intent, self.cfg, self.llm._get_client)
+
+        if grounded is not None and grounded.text and not grounded.error:
+            self.llm.total_tokens += grounded.tokens
+            out = grounded.text
+            if grounded.sources:
+                out += "\n\nSOURCES:\n" + "\n".join(
+                    f"[{i+1}] {u}" for i, u in enumerate(grounded.sources)
+                )
             err = None
-        except Exception as e:
-            out, err = f"[node error] {e}", str(e)
+        else:
+            try:
+                out = self.llm.chat([
+                    {"role": "system", "content": _SYSTEM},
+                    {"role": "user", "content": prompt},
+                ], max_tokens=1500, tag=f"kernel.{node.node_id}")
+                err = None
+            except Exception as e:
+                out, err = f"[node error] {e}", str(e)
 
         latency = time.time() - t
         cost = max(1, self.llm.total_tokens - before)

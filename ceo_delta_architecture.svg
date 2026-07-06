@@ -1,0 +1,153 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" font-family="Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#334155"/>
+    </marker>
+    <marker id="arrDual" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#E08A2B"/>
+    </marker>
+    <marker id="arrMem" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#64748B"/>
+    </marker>
+  </defs>
+
+  <rect width="1600" height="900" fill="#FBFCFE"/>
+
+  <!-- Title -->
+  <text x="800" y="46" text-anchor="middle" font-size="30" font-weight="700" fill="#111827">CEO-Delta v3.0 — EF-Driven Planning Adaptation</text>
+  <text x="800" y="74" text-anchor="middle" font-size="15" fill="#556070">the LLM generates &#183; deterministic layers judge, correct, and remember</text>
+
+  <!-- ===================== GENERATIVE PLANE (LLM) ===================== -->
+  <text x="90" y="112" font-size="15" font-weight="700" fill="#4F6BED" letter-spacing="1">GENERATIVE PLANE &#183; LLM</text>
+
+  <!-- Box 1: Interpretation -->
+  <g>
+    <rect x="90" y="128" width="300" height="122" rx="10" fill="#EEF1FD" stroke="#4F6BED" stroke-width="1.5"/>
+    <rect x="90" y="128" width="6" height="122" rx="3" fill="#16A34A"/>
+    <text x="110" y="156" font-size="13" font-weight="700" fill="#4F6BED">1 &#183; INTERPRETATION</text>
+    <text x="110" y="182" font-size="15" font-weight="600" fill="#111827">raw intent &#8594; TaskFingerprint</text>
+    <text x="110" y="206" font-size="12.5" fill="#556070">classify into structural</text>
+    <text x="110" y="224" font-size="12.5" fill="#556070">vocabulary (6 axes)</text>
+    <text x="378" y="244" text-anchor="end" font-size="11" font-weight="700" fill="#16A34A">LLM &#183; validated</text>
+  </g>
+
+  <!-- Box 3: Planning -->
+  <g>
+    <rect x="650" y="128" width="300" height="122" rx="10" fill="#EEF1FD" stroke="#4F6BED" stroke-width="1.5"/>
+    <rect x="650" y="128" width="6" height="122" rx="3" fill="#16A34A"/>
+    <text x="670" y="156" font-size="13" font-weight="700" fill="#4F6BED">3 &#183; PLANNING</text>
+    <text x="670" y="182" font-size="15" font-weight="600" fill="#111827">&#8594; typed DAG</text>
+    <text x="670" y="206" font-size="12.5" fill="#556070">free-form; steered by priors</text>
+    <text x="670" y="224" font-size="12.5" fill="#556070">&amp; directives, not templated</text>
+    <text x="938" y="244" text-anchor="end" font-size="11" font-weight="700" fill="#16A34A">LLM &#183; validated</text>
+  </g>
+
+  <!-- Box 4: Execution + Grounding -->
+  <g>
+    <rect x="1210" y="128" width="300" height="122" rx="10" fill="#EEF1FD" stroke="#4F6BED" stroke-width="1.5"/>
+    <rect x="1210" y="128" width="6" height="122" rx="3" fill="#E0A020"/>
+    <text x="1230" y="156" font-size="13" font-weight="700" fill="#4F6BED">4 &#183; EXECUTION + GROUNDING</text>
+    <text x="1230" y="182" font-size="15" font-weight="600" fill="#111827">DAG &#8594; node outputs</text>
+    <text x="1230" y="206" font-size="12.5" fill="#556070">runs each node &#183; the grounding</text>
+    <text x="1230" y="224" font-size="12.5" fill="#556070">&amp; agent-resolution seam</text>
+    <text x="1498" y="244" text-anchor="end" font-size="11" font-weight="700" fill="#C77700">LLM+tools &#183; gap</text>
+  </g>
+
+  <!-- top flow arrows -->
+  <line x1="390" y1="189" x2="650" y2="189" stroke="#334155" stroke-width="2" marker-end="url(#arr)"/>
+  <line x1="950" y1="189" x2="1210" y2="189" stroke="#334155" stroke-width="2" marker-end="url(#arr)"/>
+
+  <!-- grounding / NANDA callout on layer 4 -->
+  <g>
+    <rect x="1210" y="270" width="300" height="60" rx="8" fill="#FFF7E8" stroke="#E0A020" stroke-width="1.2" stroke-dasharray="4 3"/>
+    <text x="1225" y="291" font-size="11.5" font-weight="700" fill="#C77700">grounding path:</text>
+    <text x="1225" y="308" font-size="11.5" fill="#7a5a10">web search &#8594; MCP &#8594; NANDA-discovered agents</text>
+    <text x="1225" y="324" font-size="11.5" fill="#7a5a10">agent-resolution socket: stub &#8594; NANDA directory</text>
+  </g>
+
+  <!-- ===================== LLM BOUNDARY ===================== -->
+  <line x1="60" y1="372" x2="1540" y2="372" stroke="#334155" stroke-width="2" stroke-dasharray="9 6"/>
+  <rect x="590" y="360" width="420" height="24" rx="12" fill="#111827"/>
+  <text x="800" y="376" text-anchor="middle" font-size="12.5" font-weight="700" fill="#FFFFFF" letter-spacing="0.5">LLM BOUNDARY &#183; judgment never crosses this line</text>
+
+  <!-- ===================== EVALUATIVE PLANE (deterministic) ===================== -->
+  <text x="90" y="416" font-size="15" font-weight="700" fill="#0B8F76" letter-spacing="1">EVALUATIVE PLANE &#183; DETERMINISTIC</text>
+
+  <!-- Box 2: Specification F -->
+  <g>
+    <rect x="90" y="432" width="300" height="122" rx="10" fill="#E6F6F2" stroke="#0B8F76" stroke-width="1.5"/>
+    <rect x="90" y="432" width="6" height="122" rx="3" fill="#16A34A"/>
+    <text x="110" y="460" font-size="13" font-weight="700" fill="#0B8F76">2 &#183; SPECIFICATION (F)</text>
+    <text x="110" y="486" font-size="15" font-weight="600" fill="#111827">fingerprint &#8594; required structure</text>
+    <text x="110" y="510" font-size="12.5" fill="#556070">what a correct plan must be</text>
+    <text x="110" y="528" font-size="12.5" fill="#556070">&#8212; deterministic map</text>
+    <text x="378" y="548" text-anchor="end" font-size="11" font-weight="700" fill="#16A34A">validated</text>
+  </g>
+
+  <!-- Box 6: Adaptation -->
+  <g>
+    <rect x="650" y="432" width="300" height="122" rx="10" fill="#E6F6F2" stroke="#0B8F76" stroke-width="1.5"/>
+    <rect x="650" y="432" width="6" height="122" rx="3" fill="#16A34A"/>
+    <text x="670" y="460" font-size="13" font-weight="700" fill="#0B8F76">6 &#183; ADAPTATION</text>
+    <text x="670" y="486" font-size="15" font-weight="600" fill="#111827">E &#8594; directive &#8594; repair</text>
+    <text x="670" y="510" font-size="12.5" fill="#556070">coordinate descent; PRESERVE;</text>
+    <text x="670" y="528" font-size="12.5" fill="#556070">LLM only on earned escalation</text>
+    <text x="938" y="548" text-anchor="end" font-size="11" font-weight="700" fill="#16A34A">validated</text>
+  </g>
+
+  <!-- Box 5: Measurement E -->
+  <g>
+    <rect x="1210" y="432" width="300" height="122" rx="10" fill="#E6F6F2" stroke="#0B8F76" stroke-width="1.5"/>
+    <rect x="1210" y="432" width="6" height="122" rx="3" fill="#16A34A"/>
+    <text x="1230" y="460" font-size="13" font-weight="700" fill="#0B8F76">5 &#183; MEASUREMENT (E)</text>
+    <text x="1230" y="486" font-size="15" font-weight="600" fill="#111827">plan &#8594; error tensor</text>
+    <text x="1230" y="510" font-size="12.5" fill="#556070">[partition &#183; flow &#183; role &#183; scale]</text>
+    <text x="1230" y="528" font-size="12.5" fill="#556070">graph + embeddings, no LLM</text>
+    <text x="1498" y="548" text-anchor="end" font-size="11" font-weight="700" fill="#C77700">3/4 validated</text>
+  </g>
+
+  <!-- loop arrows -->
+  <!-- derive F: interpretation -> spec F -->
+  <line x1="180" y1="250" x2="180" y2="432" stroke="#334155" stroke-width="2" marker-end="url(#arr)"/>
+  <text x="192" y="345" font-size="12" fill="#334155">derive F</text>
+  <!-- execute->measure: execution -> E -->
+  <line x1="1420" y1="250" x2="1420" y2="432" stroke="#334155" stroke-width="2" marker-end="url(#arr)"/>
+  <text x="1432" y="345" font-size="12" fill="#334155">measure</text>
+  <!-- E -> Adaptation (directive) -->
+  <line x1="1210" y1="493" x2="950" y2="493" stroke="#334155" stroke-width="2" marker-end="url(#arr)"/>
+  <text x="1080" y="484" text-anchor="middle" font-size="12" fill="#334155">directive</text>
+  <!-- Adaptation -> Planning (corrected replan, closes the loop) -->
+  <line x1="800" y1="432" x2="800" y2="250" stroke="#0B8F76" stroke-width="2.5" marker-end="url(#arr)"/>
+  <text x="812" y="345" font-size="12" font-weight="700" fill="#0B8F76">corrected replan &#8593;</text>
+
+  <!-- ===================== F <-> E DUAL ===================== -->
+  <line x1="240" y1="600" x2="1360" y2="600" stroke="#E08A2B" stroke-width="2.5" marker-start="url(#arrDual)" marker-end="url(#arrDual)"/>
+  <line x1="240" y1="554" x2="240" y2="600" stroke="#E08A2B" stroke-width="1.3" stroke-dasharray="4 3"/>
+  <line x1="1360" y1="554" x2="1360" y2="600" stroke="#E08A2B" stroke-width="1.3" stroke-dasharray="4 3"/>
+  <rect x="560" y="586" width="480" height="28" rx="14" fill="#FDF1E0"/>
+  <text x="800" y="605" text-anchor="middle" font-size="13" font-weight="700" fill="#C77700">E is the DUAL of F &#183; same coordinate basis</text>
+
+  <!-- ===================== PERSISTENT PLANE (memory) ===================== -->
+  <g>
+    <rect x="90" y="656" width="1420" height="86" rx="10" fill="#EEF1F4" stroke="#64748B" stroke-width="1.5"/>
+    <rect x="90" y="656" width="6" height="86" rx="3" fill="#16A34A"/>
+    <text x="110" y="682" font-size="13" font-weight="700" fill="#475569">7 &#183; MEMORY &#183; PERSISTENT PLANE (deterministic)</text>
+    <text x="110" y="708" font-size="14" font-weight="600" fill="#111827">Handbook priors &#160;|&#160; EFStore: learned moves, escalation moves, side-effect profiles, F-keyed convergence trajectories</text>
+    <text x="110" y="730" font-size="12.5" fill="#556070">feeds priors up into Planning &#8593; &#160;&#183;&#160; fed by Adaptation's learned corrections &#8595; &#160;&#183;&#160; the substrate that makes it learn across runs</text>
+  </g>
+  <!-- memory connectors -->
+  <line x1="760" y1="656" x2="760" y2="554" stroke="#64748B" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#arrMem)"/>
+  <text x="640" y="640" font-size="11.5" fill="#64748B">priors &#8593; / learned moves &#8595;</text>
+
+  <!-- ===================== STATUS LEGEND ===================== -->
+  <g>
+    <text x="90" y="785" font-size="12" font-weight="700" fill="#475569">MATURITY:</text>
+    <rect x="175" y="775" width="12" height="12" rx="3" fill="#16A34A"/>
+    <text x="193" y="785" font-size="12" fill="#556070">validated</text>
+    <rect x="285" y="775" width="12" height="12" rx="3" fill="#E0A020"/>
+    <text x="303" y="785" font-size="12" fill="#556070">in progress / gap (grounding; role axis)</text>
+    <rect x="575" y="775" width="12" height="12" rx="3" fill="#94A3B8"/>
+    <text x="593" y="785" font-size="12" fill="#556070">stub / deferred (NANDA agent resolution)</text>
+  </g>
+  <text x="1510" y="785" text-anchor="end" font-size="12" font-style="italic" fill="#94A3B8">most agent systems let the model judge itself &#8212; we confined it to the top plane</text>
+</svg>

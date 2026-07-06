@@ -34,6 +34,23 @@ from .handbook import Handbook
 from .llm import LLMClient
 from .schemas import AgentRegistry, DAG, Node, Roles, TaskFingerprint, Why
 
+_CANONICAL_ROLES = {"retriever", "synthesizer", "verifier", "generic"}
+
+
+def _coerce_functional_role(raw) -> str:
+    """The LLM occasionally emits a list for `functional` when a node blends
+    roles (e.g. ["retriever", "verifier"]). str(list) used to mangle that into
+    an unmatched literal string ("['retriever', 'verifier']") that silently
+    fell through to the zero-weight 'generic' behavioral band -- the role axis
+    went blind on that node without any signal that it had. Take the first
+    element for a list; anything outside the canonical set explicitly becomes
+    'generic' rather than an unmatched garbage string that behaves the same
+    way but looks like real data in logs."""
+    if isinstance(raw, list) and raw:
+        raw = raw[0]
+    role = str(raw or "generic").strip().lower()
+    return role if role in _CANONICAL_ROLES else "generic"
+
 _SYSTEM = (
     "You are the CEO planning agent in a multi-agent system. You ONLY plan; you "
     "never execute. You build a full computation DAG before anything runs, "
@@ -79,6 +96,39 @@ Output ONLY a JSON object of this exact shape. Do not output any text before or 
   ]
 }}"""
 
+# v3.x — composition step. The CEO does not just plan; it closes the loop by
+# speaking as the single accountable voice of the org. Verifier output is
+# internal machinery (an audit of the org's own work) and must be CONSUMED
+# here, not forwarded raw -- the user should never see [UNVERIFIED] tags,
+# node ids, or "upstream context" language.
+_COMPOSE_SYSTEM = (
+    "You are the CEO -- the single coherent voice of a multi-agent system that "
+    "has just completed its internal work (planning, retrieval, synthesis, "
+    "verification) for one task. Deliver ONE coherent, professional answer to "
+    "the user's original request, written as if from a single expert author. "
+    "You have access to your own internal findings, including verification "
+    "notes about what could and could not be confirmed. Speak in one voice. "
+    "Do NOT mention nodes, plans, agents, 'upstream context', or internal "
+    "structure. Do NOT emit raw [UNVERIFIED] tags. Where something could not "
+    "be verified, express appropriate confidence or caveats in natural "
+    "language instead."
+)
+
+_COMPOSE_PROMPT = """The user asked:
+
+{task}
+
+Your organization's internal work on this task (raw notes, findings, and any
+verification audit) is below. Use it to compose the final deliverable -- do
+not just repeat it.
+
+INTERNAL MATERIAL:
+{material}
+
+Produce ONLY the final deliverable, in your own voice, as the complete answer
+to the user's request above. No preamble, no meta-commentary about the process
+that produced it."""
+
 
 class CEO:
     def __init__(self, handbook: Handbook, llm: LLMClient,
@@ -120,7 +170,14 @@ class CEO:
             if exploratory else
             "STANDARD MODE: lean on the priors where confident."
         )
-        prior_lock = self._prior_lock_note(retrieval_emb, exploratory)
+        # Prior/directive arbitration: while a corrective directive is active,
+        # the prior lock is suppressed — otherwise the same prompt says both
+        # "keep this topology (high-confidence prior)" and "restructure it
+        # (directive)", and the lock wins (observed live: conf=10 prior pinned
+        # CEO to a topology the directive was trying to fix). Within a
+        # correction loop the measured error signal outranks the prior.
+        in_correction = directive is not None and getattr(directive, "action", "surface") != "surface"
+        prior_lock = "" if in_correction else self._prior_lock_note(retrieval_emb, exploratory)
         directive_context = self._format_directive(directive)
         modifier_context = self._format_modifiers(fingerprint)
         full_context = "\n".join(filter(None, [directive_context, modifier_context]))
@@ -157,6 +214,28 @@ class CEO:
         finally:
             self._in_replan = False
         return dag
+
+    # -- composition ------------------------------------------------------------
+    def compose(self, task: str, fingerprint, dag, trace) -> str:
+        """The CEO's closing act: compose ONE coherent deliverable from the org's
+        internal work. Verifier findings are CONSUMED as the entity's own awareness
+        of uncertainty (rendered as natural-language caveats), never leaked as raw
+        [UNVERIFIED] tags or node/plan talk. This is the machinery->output boundary."""
+        by_id = {r.node_id: r for r in trace.results}
+        blocks = []
+        for n in dag.nodes:
+            r = by_id.get(n.node_id)
+            if r is None or r.error:
+                continue
+            blocks.append(f"[{n.roles.functional}] {r.output[:4000]}")
+        material = "\n\n".join(blocks)
+        if not material:
+            return ""
+        prompt = _COMPOSE_PROMPT.format(task=task, material=material)
+        return self.llm.chat([
+            {"role": "system", "content": _COMPOSE_SYSTEM},
+            {"role": "user", "content": prompt},
+        ], tag="ceo.compose").strip()
 
     # -- mandatory verifier enforcement ----------------------------------------
     def force_verifier(self, dag: DAG) -> DAG:
@@ -207,7 +286,7 @@ class CEO:
         nodes: List[Node] = []
         for nr in nodes_raw:
             intent = str(nr.get("intent", "")).strip() or "unspecified"
-            functional_role = str(nr.get("functional", "generic"))
+            functional_role = _coerce_functional_role(nr.get("functional", "generic"))
             why = Why(
                 task_type_recognized=str(data.get("task_type", "")),
                 topology_chosen=topology,
@@ -345,8 +424,11 @@ class CEO:
         if directive.refinement_targets:
             lines.append(f"Focus on: {', '.join(directive.refinement_targets)}")
         lines.append(
-            "You MUST structurally change your plan to fix this exact issue. "
-            "Vague adjustments are not acceptable. "
-            "In directive_response, state concretely what you changed and why."
+            "Make the MINIMAL structural change that fixes the flagged PRIMARY AXIS. "
+            "If the guidance lists PRESERVE constraints or a CURRENT PLAN, treat that plan "
+            "as your baseline and edit it incrementally — keep every node and edge that is "
+            "not implicated by the primary axis, and do NOT rebuild from scratch (rebuilding "
+            "regresses axes that were already correct). "
+            "In directive_response, state exactly what you changed and what you deliberately kept."
         )
         return "\n".join(lines)

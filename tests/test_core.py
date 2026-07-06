@@ -15,7 +15,7 @@ from ceo_delta import bootstrap
 
 def _cfg():
     c = Config()
-    c.llm_base_url = "http://127.0.0.1:1"  # unreachable -> forces stub
+    c.llm_base_url = "http://127.0.0.1:1"  # unreachable -> fast-fails -> deterministic stub
     c.llm_allow_stub = True
     c.llm_timeout_s = 1
     return c
@@ -37,7 +37,7 @@ def test_embedding_self_similarity():
 # ---- limitation #1: cold start ----
 def test_cold_start_seeded_and_exploratory():
     o = _orch()
-    assert len(o.ceo_hb.entries) > 0, "handbook seeded on cold start"
+    assert len(o.hb.entries) > 0, "handbook seeded on cold start"
     r = o.run("plan something novel about agents")
     assert r.dag.exploratory, "first runs are exploratory"
 
@@ -72,10 +72,10 @@ def test_reflection_triggers_and_budget():
     o = _orch()
     # force two contested entries
     for i in range(2):
-        e = o.ceo_hb.entries[i]
+        e = o.hb.entries[i]
         e.topology_votes = {"A": 3, "B": 3}
-        o.ceo_hb.resolve(e)
-    ok, reason = should_reflect(1, o.ceo_hb, o.cfg)
+        o.hb.resolve(e)
+    ok, reason = should_reflect(1, o.hb, o.cfg)
     assert ok and "contested" in reason
     log = o.reflect_now()
     assert log.triggered
@@ -86,12 +86,12 @@ def test_reflection_triggers_and_budget():
 # ---- full loop ----
 def test_full_loop_runs_and_learns():
     o = _orch()
-    before = len(o.ceo_hb.entries)
+    before = len(o.hb.entries)
     r = o.run("compare two agent planning frameworks")
     assert r.answer and r.dag.nodes
     assert r.report.verdict in ("good", "mixed", "poor")
     # delta wrote something (votes added or new entry)
-    assert len(o.ceo_hb.entries) >= before
+    assert len(o.hb.entries) >= before
 
 
 def test_meta_feedback():

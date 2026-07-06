@@ -24,6 +24,7 @@ was duplicated state with no distinct purpose.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import List, Optional
 
@@ -31,6 +32,26 @@ from .config import Config, DEFAULT
 from .embeddings import cosine, embed
 from .llm import LLMClient
 from .schemas import DAG, TaskFingerprint
+
+# Deterministic temporal / live-data volatility signal. The LLM's volatility
+# taxonomy (stable|evolving|contested) is EPISTEMIC -- "are the claims
+# disputed?" -- and misses TEMPORAL volatility: a task that needs current/live
+# data the model cannot hold in parametric knowledge ("today's news",
+# "restaurants near me currently open", "the stock tomorrow"). Those read as
+# "stable" to the LLM (nobody disputes them), so no verifier is forced and
+# groundedness can never fire -- the ungroundable discriminator goes dark.
+# This regex flags temporal/live-data language and upgrades volatility to at
+# least "evolving": a code-level guarantee (like force_verifier), not a prompt
+# hope. Temporal-recency language IS a genuine signal that the answer depends
+# on information outside the model's knowledge and therefore must be verified.
+_TEMPORAL_VOLATILITY_RE = re.compile(
+    r"\b(today|tonight|tomorrow|yesterday|latest|currently|current|right\s+now|"
+    r"now|this\s+(week|month|year|morning|evening|afternoon)|these\s+days|"
+    r"as\s+of|up[-\s]?to[-\s]?date|recently|recent|live|near\s+me|nearby|"
+    r"open\s+now|at\s+the\s+moment|breaking|this\s+quarter|ytd|today's)\b",
+    re.I,
+)
+
 
 # -- upstream parsing (primary pass) ------------------------------------------
 
@@ -180,6 +201,14 @@ class Research:
             complexity=str(data.get("complexity", "medium")),
             domain_volatility=str(data.get("domain_volatility", "stable")),
         )
+        # Deterministic temporal-volatility override: a task needing live/
+        # current data must force verification regardless of the LLM's
+        # (epistemic) volatility label, which is blind to temporal neediness.
+        # Only upgrades stable -> evolving; never downgrades an LLM call of
+        # evolving/contested. See _TEMPORAL_VOLATILITY_RE.
+        if (fingerprint.domain_volatility == "stable"
+                and _TEMPORAL_VOLATILITY_RE.search(task)):
+            fingerprint.domain_volatility = "evolving"
         # embed ONLY the shape axes -- modifiers never enter the embedding
         fingerprint.embedding = embed(fingerprint.shape_string())
 

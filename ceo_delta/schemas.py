@@ -7,6 +7,11 @@ v0.4 changes:
     - DeltaDirective dataclass: typed control signal from Delta to CEO
     - Why dataclass enriched with directive_received and directive_response
     - ExecutionTrace gains iteration field for multi-pass loop tracking
+
+v2.1 changes:
+    - DeltaDirective gains primary_dim: which error-tensor dimension this
+      directive targets, set by delta.py, used for clean escalation
+      outcome backfill in orchestrator.py instead of string-parsing.
 """
 from __future__ import annotations
 
@@ -35,6 +40,9 @@ class DeltaDirective:
     confidence: float = 1.0             # how confident Delta is in this directive
     iteration: int = 0                  # which loop iteration produced this
     escalated: bool = False             # True if LLM fallback was used
+    primary_dim: str = ""               # NEW v2.1: which E-tensor dim this
+                                         # directive targets (drift/echo/cascade/
+                                         # role/resource). Empty for legacy/surface.
 
 
 @dataclass
