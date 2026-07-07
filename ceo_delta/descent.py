@@ -86,7 +86,7 @@ Do not touch parts of the plan the measurement ignores. Output ONLY:
 
 
 class Descent:
-    def __init__(self, fingerprint, required, store, cfg, llm, role_bands):
+    def __init__(self, fingerprint, required, store, cfg, llm, role_bands, task_raw=None):
         self.fp = fingerprint
         self.req = required
         self.store = store
@@ -94,6 +94,11 @@ class Descent:
         self.llm = llm
         self.role_bands = role_bands
         self.shape_key = fingerprint.shape_string()
+        # v3.6 robustness: the raw run() task string, the one deterministic
+        # identity per run (structured_intent is re-derived and can drift).
+        # Used only as the warm-start task_embedding key in finalize() below;
+        # falls back to best_dag.task if not supplied (e.g. old call sites).
+        self.task_raw = task_raw
 
         # register this species so counters/moves have a home
         self.store.ensure(self.shape_key, fingerprint.embedding)
@@ -568,7 +573,7 @@ class Descent:
                 # semantic artifact fetched by a non-semantic key). Stored
                 # alongside best_plan so it is overwritten in lockstep with
                 # the plan it describes.
-                "task_embedding": embed(best_dag.task),
+                "task_embedding": embed(self.task_raw or best_dag.task),
             }
         self.store.upsert_case(
             shape_key=self.shape_key,

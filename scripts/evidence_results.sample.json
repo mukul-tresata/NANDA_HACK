@@ -1,0 +1,106 @@
+{
+  "_README": "ILLUSTRATIVE SAMPLE for UI development ONLY. Values are representative of real runs but NOT freshly measured. Build the UI against this file, then swap in the real scripts/evidence_results.json (identical schema) once `python3 -u scripts/evidence.py` has been run on the model host.",
+  "generated_at": 1751846400.0,
+  "elapsed_s": 812.4,
+  "thresholds": { "partition": 0.70, "flow": 0.25, "role": 0.35, "scale": 0.34 },
+  "claims": [
+    {
+      "id": "1_capture",
+      "name": "CAPTURE",
+      "passed": true,
+      "headline": "3 distinct species across 3 task-types",
+      "payload": {
+        "tasks": [
+          {
+            "task": "Explain how a modern C compiler transforms C source into an executable.",
+            "species": "information_flow:sequential epistemic_stance:synthesis output_contract:artifact decomposability:coupled"
+          },
+          {
+            "task": "Compare Python, Rust, and Go across performance, safety, and concurrency.",
+            "species": "information_flow:convergent epistemic_stance:retrieval output_contract:comparison decomposability:independent"
+          },
+          {
+            "task": "Given three job offers, recommend the best one and justify the tradeoffs.",
+            "species": "information_flow:convergent epistemic_stance:synthesis output_contract:ranking decomposability:coupled"
+          }
+        ]
+      }
+    },
+    {
+      "id": "2_generalize",
+      "name": "GENERALIZE",
+      "passed": true,
+      "headline": "cosine=0.27 (unrelated) yet same class=true",
+      "payload": {
+        "task_a": "Explain the entire water cycle from evaporation to groundwater recharge.",
+        "task_b": "Describe how an HTTP request travels from a browser to a server and back.",
+        "text_cosine": 0.27,
+        "species_a": "information_flow:sequential epistemic_stance:synthesis output_contract:artifact decomposability:coupled",
+        "species_b": "information_flow:sequential epistemic_stance:synthesis output_contract:artifact decomposability:coupled",
+        "same_class": true
+      }
+    },
+    {
+      "id": "3_descend",
+      "name": "DESCEND",
+      "passed": true,
+      "headline": "monotone=true, 1 deterministic repair, 1 bad move rejected, worst-excess +0.283->+0.040",
+      "payload": {
+        "task": "Plan a trip from Bangalore to Bangkok under 60k using current fares.",
+        "verdict": "mixed",
+        "iterations": 4,
+        "incumbent_trace": [
+          { "partition": 0.8401, "flow": 0.0, "role": 0.6333, "scale": 0.0 },
+          { "partition": 0.7401, "flow": 0.0, "role": 0.3095, "scale": 0.0 },
+          { "partition": 0.7401, "flow": 0.0, "role": 0.3095, "scale": 0.0 },
+          { "partition": 0.7401, "flow": 0.0, "role": 0.3095, "scale": 0.0 }
+        ],
+        "worst_excess_curve": [0.2833, 0.0401, 0.0401, 0.0401],
+        "raw_trace": [
+          { "partition": 0.8401, "flow": 0.0, "role": 0.6333, "scale": 0.0 },
+          { "partition": 0.7401, "flow": 0.0, "role": 0.3095, "scale": 0.0 },
+          { "partition": 0.8745, "flow": 0.0, "role": 0.2563, "scale": 0.0 },
+          { "partition": 0.0, "flow": 1.0, "role": 0.3063, "scale": 0.0 }
+        ],
+        "move_log": [
+          { "axis": "role", "move": "role.realign", "before": 0.633, "after": 0.309, "improved": true },
+          { "axis": "partition", "move": "partition.differentiate", "before": 0.74, "after": 0.875, "improved": false },
+          { "axis": "partition", "move": "partition.merge_redundant", "before": 0.74, "after": 0.0, "improved": true }
+        ],
+        "monotone": true,
+        "improved": true,
+        "deterministic_repairs": [
+          { "axis": "role", "move": "role.realign", "before": 0.633, "after": 0.309, "improved": true }
+        ],
+        "llm_rejected": [
+          { "axis": "partition", "move": "partition.differentiate", "before": 0.74, "after": 0.875, "improved": false }
+        ]
+      }
+    },
+    {
+      "id": "4_reuse",
+      "name": "REUSE",
+      "passed": true,
+      "headline": "run1 cold, run2 warm=true iters=1",
+      "payload": {
+        "task": "Explain how a modern C compiler transforms C source into an executable.",
+        "run1": { "verdict": "good", "iters": 2, "warm": false },
+        "run2": { "verdict": "good", "iters": 1, "warm": true }
+      }
+    },
+    {
+      "id": "5_converge",
+      "name": "CONVERGE",
+      "passed": true,
+      "headline": "verdicts=[good,good,mixed] all in satisfying region=true",
+      "payload": {
+        "task": "Explain how a modern C compiler transforms C source into an executable.",
+        "reps": [
+          { "rep": 1, "verdict": "good",  "iters": 2, "ef": { "partition": 0.31, "flow": 0.0, "role": 0.20, "scale": 0.0 } },
+          { "rep": 2, "verdict": "good",  "iters": 3, "ef": { "partition": 0.42, "flow": 0.0, "role": 0.18, "scale": 0.0 } },
+          { "rep": 3, "verdict": "mixed", "iters": 2, "ef": { "partition": 0.66, "flow": 0.0, "role": 0.29, "scale": 0.0 } }
+        ]
+      }
+    }
+  ]
+}

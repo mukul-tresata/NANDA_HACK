@@ -64,10 +64,16 @@ def compute_required(fp) -> RequiredStructure:
         roles.add("verifier")
     if fp.requires_verifier():
         roles.add("verifier")
+    target_depth = fp.depth_cap()
+    if fp.information_flow == "recursive":
+        # deepen_recursive requires depth>=3 to approximate recursive flow; a
+        # low complexity cap can otherwise set target_depth=2, making the
+        # flow and scale axes mutually unsatisfiable (an F-level contradiction).
+        target_depth = max(target_depth, 3)
     return RequiredStructure(
         flow=fp.information_flow,
         decomposability=fp.decomposability,
-        target_depth=fp.depth_cap(),
+        target_depth=target_depth,
         required_roles=roles,
     )
 

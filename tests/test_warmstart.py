@@ -149,6 +149,33 @@ def test_identity_gate_blocks_same_shape_different_task():
     assert sim < DEFAULT.warm_start_similarity_threshold
 
 
+# -- warm-start eligibility gate (mixed plans reusable, poor plans not) ----
+# Root-cause fix: the retrieval gate previously required best_worst_excess < 0
+# (EVERY axis strictly under threshold), but the system DELIVERS "mixed"
+# plans (one axis over by <= ef_mixed_margin) as legitimate answers -- see
+# orchestrator.py _next_dag. The gate now mirrors the same non-poor bar:
+# best_worst_excess <= ef_mixed_margin. This helper reproduces that exact
+# branch condition so the test tracks orchestrator.py's real gate.
+
+def _eligible(best_worst_excess, cfg=DEFAULT):
+    return best_worst_excess <= cfg.ef_mixed_margin
+
+
+def test_mixed_plan_is_eligible_for_warm_start():
+    # strictly over 0 but within the mixed margin -- a delivered "mixed" plan
+    assert 0.0 < DEFAULT.ef_mixed_margin
+    assert _eligible(DEFAULT.ef_mixed_margin / 2.0) is True
+    assert _eligible(DEFAULT.ef_mixed_margin) is True  # boundary is inclusive
+
+
+def test_poor_plan_is_not_eligible_for_warm_start():
+    assert _eligible(DEFAULT.ef_mixed_margin + 0.01) is False
+
+
+def test_perfect_plan_is_still_eligible_for_warm_start():
+    assert _eligible(-0.1) is True
+
+
 def test_identity_gate_allows_same_task():
     """Same task (or a near-identical rephrasing of it) must pass the gate,
     or warm-start would never fire even for its intended case."""

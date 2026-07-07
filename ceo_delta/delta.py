@@ -242,14 +242,15 @@ class Delta:
     # v3.0 EF run lifecycle
     # -------------------------------------------------------------------
 
-    def begin_run(self, fingerprint) -> None:
+    def begin_run(self, fingerprint, task_raw: Optional[str] = None) -> None:
         """Open a fresh coordinate-descent for this task. Loads the F-keyed
         move memory (learned + escalation moves) for this fingerprint class."""
         if not self.use_ef:
             return
         required = compute_required(fingerprint)
         self._descent = Descent(
-            fingerprint, required, self.ef_store, self.cfg, self.llm, self.role_bands
+            fingerprint, required, self.ef_store, self.cfg, self.llm, self.role_bands,
+            task_raw=task_raw,
         )
 
     def end_run(self, best_dag) -> None:

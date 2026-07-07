@@ -367,3 +367,83 @@ def test_apply_move_dispatches_partition_merge_redundant_without_kwargs():
     out, changed = G.apply_move(dag, "partition.merge_redundant")
     assert changed is True
     assert len(out.nodes) == len(dag.nodes) - 1
+
+
+# ---------------------------------------------------------------------------
+# v3.6 -- Fix A/B/C/D
+# ---------------------------------------------------------------------------
+
+def test_partition_merge_redundant_uses_real_partition_pairs_not_intent_guess():
+    # intent text makes r1/r2 look near-identical (would win on the OLD intent
+    # proxy), but the REAL measured partition_pairs says r1/r3 is the true
+    # worst (highest-similarity) pair -- Fix A must merge THAT pair instead.
+    dag = _dag([
+        _node_intent("r1", [], "Retrieve current flight prices from Bangalore to Bangkok"),
+        _node_intent("r2", [], "Retrieve current flight prices from Bangalore to Bangkok"),
+        _node_intent("r3", [], "Summarize Thai visa rules for Indian passport holders"),
+        _node_intent("j", ["r1", "r2", "r3"], "Integrate findings"),
+    ], "fan-out")
+    partition_pairs = {("r1", "r3"): 0.95, ("r1", "r2"): 0.10, ("r2", "r3"): 0.05}
+    out, changed = G.partition_merge_redundant(dag, partition_pairs=partition_pairs)
+    assert changed is True
+    ids = {n.node_id for n in out.nodes}
+    # r1 (kept, lexicographically smaller of r1/r3) survives, r3 (dropped) gone,
+    # r2 (not part of the real worst pair) is untouched.
+    assert "r3" not in ids
+    assert "r1" in ids
+    assert "r2" in ids
+
+
+def test_partition_merge_redundant_refuses_when_it_would_break_divergent_gather_floor():
+    # exactly 2 roots, no branching coordinator (max_out < 2) -- merging the
+    # only two roots would drop root_count to 1 and max_out stays < 2,
+    # breaking the divergent flow's parallel-gather floor. Fix B must refuse.
+    dag = _dag([
+        _node_intent("r1", [], "Retrieve current flight prices from Bangalore to Bangkok"),
+        _node_intent("r2", [], "Retrieve current flight prices from Bangalore to Bangkok"),
+        _node_intent("j", ["r1", "r2"], "Integrate the retrieved flight price data"),
+    ], "fan-out")
+    req = _req(flow="divergent")
+    partition_pairs = {("r1", "r2"): 0.95}
+    out, changed = G.partition_merge_redundant(dag, partition_pairs=partition_pairs, req=req)
+    assert changed is False
+    assert out is dag
+
+
+def test_collapse_layer_never_deletes_the_sole_verifier():
+    # chain a -> b -> c(verifier) -> d ; c is the DEEPEST non-sink candidate
+    # (would be picked first) and is the sole required verifier. Fix C must
+    # skip it and fall through to the next-deepest safe candidate (b)
+    # instead, never deleting the verifier.
+    dag = _dag([
+        _node("a", [], role="retriever"),
+        _node("b", ["a"], role="generic"),
+        _node("c", ["b"], role="verifier"),
+        _node("d", ["c"], role="synthesizer"),
+    ])
+    req = _req(target_depth=2)
+    req.required_roles = {"verifier"}
+    out, changed = G.collapse_layer(dag, req=req)
+    assert changed is True
+    assert any(n.roles.functional == "verifier" for n in out.nodes)
+    assert out.node("c") is not None            # the verifier node itself survives
+    # incumbent untouched regardless
+    assert any(n.roles.functional == "verifier" for n in dag.nodes)
+
+
+def test_compute_required_floors_recursive_target_depth_at_three():
+    class _FP:
+        epistemic_stance = "synthesis"
+        output_contract = "artifact"
+        information_flow = "recursive"
+        decomposability = "coupled"
+
+        def requires_verifier(self):
+            return False
+
+        def depth_cap(self):
+            return 2  # low complexity cap, below the recursive-flow floor
+
+    from ceo_delta.ef import compute_required
+    req = compute_required(_FP())
+    assert req.target_depth >= 3

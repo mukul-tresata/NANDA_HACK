@@ -151,17 +151,26 @@ def _resync_depth_topology(dag: DAG, topology: str) -> None:
 # SCALE operators (change critical-path depth by exactly 1, deterministically)
 # ---------------------------------------------------------------------------
 
-def collapse_layer(dag: DAG) -> Tuple[DAG, bool]:
+def collapse_layer(dag: DAG, req=None) -> Tuple[DAG, bool]:
     """Remove one dependency layer -> depth strictly decreases by (at least) 1.
 
     Deletes the deepest interior node that actually gates the critical path and
     rewires its dependents onto its dependencies. If no removal can shorten the
     graph (already minimal), returns changed=False so the axis is honestly
     exhausted rather than thrashed.
+
+    `req` (optional RequiredStructure): if the chosen candidate's removal
+    would drop a `req.required_roles` member out of the graph's present-role
+    set, that candidate is skipped in favor of the next deepest one (role
+    preservation is a pure set-membership check on the trial graph, no LLM
+    judgment). If every non-sink candidate would break a required role, the
+    move honestly refuses: (dag, False).
     """
     d0 = _depth(dag)
     if d0 <= 1 or len(dag.nodes) <= 1:
         return dag, False
+
+    required_roles = getattr(req, "required_roles", None) if req else None
 
     sinks = set(_sinks(dag))
     levels = _levels(dag)
@@ -173,6 +182,18 @@ def collapse_layer(dag: DAG) -> Tuple[DAG, bool]:
         key=lambda n: levels[n.node_id], reverse=True,
     )
     for cand in candidates:
+        if required_roles:
+            # Refuse ONLY if this candidate is the SOLE carrier of a required
+            # role that is currently PRESENT -- removing it would drop that role
+            # from the graph. A required role that is already absent is a
+            # role-axis problem, not collapse's concern, and must not block
+            # collapse (else a graph missing any required role can never be
+            # depth-repaired at all).
+            role = cand.roles.functional
+            if role in required_roles and not any(
+                n.roles.functional == role for n in dag.nodes if n.node_id != cand.node_id
+            ):
+                continue  # sole carrier of a present required role -- skip it
         trial = _clone(dag)
         cid = cand.node_id
         cdeps = [d for d in cand.dependencies]
@@ -486,21 +507,42 @@ def role_realign(dag: DAG, required: Optional[set] = None) -> Tuple[DAG, bool]:
 PARTITION_MERGE_SIM = 0.80
 
 
-def partition_merge_redundant(dag: DAG) -> Tuple[DAG, bool]:
+def partition_merge_redundant(dag: DAG, partition_pairs: Optional[Dict] = None,
+                               req=None) -> Tuple[DAG, bool]:
     """Collapse the single most-redundant sibling pair into one node.
 
     Siblings = nodes sharing an identical dependency set (root nodes, with
     empty deps, are siblings of each other too -- a divergent fan-out's
     parallel roots are the primary over-partition risk, mirroring
-    ef._partition_error's own comment). Redundancy is approximated by INTENT
-    embedding cosine similarity (no runtime output embeddings are available
-    at graph-transform time).
+    ef._partition_error's own comment).
 
-    Finds the highest-similarity sibling pair across ALL sibling groups. If
-    it's below PARTITION_MERGE_SIM, the siblings are genuinely distinct work
-    -- merging them would destroy needed parallelism, so this returns
-    (dag, False) untouched. Same for: no sibling pairs at all, or fewer than
-    2 nodes total.
+    Redundancy target selection (v3.6 -- Fix A): when `partition_pairs` (the
+    EFTensor's real, OUTPUT-embedding-based sibling similarity dict, keyed
+    (id_i,id_j)->cosine) is provided and non-empty, the merge target is the
+    highest-similarity pair FROM THAT MEASURED DATA -- the axis's actual
+    worst pair. This replaces the old intent-embedding guess, which false-
+    fired on distinct-but-similarly-worded siblings (e.g. per-offer eval
+    nodes, flight/hotel retrievers) that read similar in intent text but do
+    genuinely distinct work, as measured by their real outputs.
+
+    Only when `partition_pairs` is None/empty (cold, pre-execution -- no
+    output embeddings exist yet) does this fall back to the previous INTENT
+    embedding cosine similarity proxy across all sibling groups.
+
+    Either way: if the winning pair's similarity is below PARTITION_MERGE_SIM,
+    the siblings are genuinely distinct work -- merging them would destroy
+    needed parallelism, so this returns (dag, False) untouched. Same for: no
+    sibling pairs at all, or fewer than 2 nodes total.
+
+    Flow-preservation guard (v3.6 -- Fix B): before committing, the trial
+    DAG's graph-signature is computed AFTER the proposed merge. If `req` is
+    given and its flow is divergent, and the merge would drop BOTH
+    root_count<2 AND max_out<2 (breaking the parallel-gather floor), or its
+    flow is convergent and the merge would drop the sink's max_in<2, the
+    merge is refused: (dag, False). This is pure arithmetic on the trial
+    signature -- it turns the partition->flow coupling into an honest no-op
+    instead of a flow-spiking move that the descent's rejection logic would
+    have to catch downstream.
 
     Otherwise merges the winning pair: keeps the lexicographically smaller
     node_id, drops the other, and rewires every remaining node's
@@ -512,23 +554,36 @@ def partition_merge_redundant(dag: DAG) -> Tuple[DAG, bool]:
     if len(dag.nodes) < 2:
         return dag, False
 
-    groups: Dict[frozenset, List[Node]] = {}
-    for n in dag.nodes:
-        key = frozenset(n.dependencies)
-        groups.setdefault(key, []).append(n)
-
+    existing = {n.node_id for n in dag.nodes}
     best_pair: Optional[Tuple[str, str]] = None
     best_sim = -2.0
-    for members in groups.values():
-        if len(members) < 2:
-            continue
-        for i in range(len(members)):
-            for j in range(i + 1, len(members)):
-                a, b = members[i], members[j]
-                sim = cosine(embed(a.intent), embed(b.intent))
-                if sim > best_sim:
-                    best_sim = sim
-                    best_pair = (a.node_id, b.node_id)
+
+    if partition_pairs:
+        for (i, j), sim in partition_pairs.items():
+            if i not in existing or j not in existing:
+                continue  # stale entry from a prior graph shape
+            if sim > best_sim:
+                best_sim = sim
+                best_pair = (i, j)
+
+    if best_pair is None:
+        # cold path (no measured output data yet) -- fall back to the
+        # intent-embedding proxy across sibling groups.
+        groups: Dict[frozenset, List[Node]] = {}
+        for n in dag.nodes:
+            key = frozenset(n.dependencies)
+            groups.setdefault(key, []).append(n)
+
+        for members in groups.values():
+            if len(members) < 2:
+                continue
+            for i in range(len(members)):
+                for j in range(i + 1, len(members)):
+                    a, b = members[i], members[j]
+                    sim = cosine(embed(a.intent), embed(b.intent))
+                    if sim > best_sim:
+                        best_sim = sim
+                        best_pair = (a.node_id, b.node_id)
 
     if best_pair is None or best_sim < PARTITION_MERGE_SIM:
         return dag, False
@@ -549,6 +604,15 @@ def partition_merge_redundant(dag: DAG) -> Tuple[DAG, bool]:
             if nd not in rewired:
                 rewired.append(nd)
         n.dependencies = rewired
+
+    if req is not None:
+        from .ef import graph_signature  # local import: avoid module-load cycle
+        trial_sig = graph_signature(trial)
+        flow = getattr(req, "flow", None)
+        if flow == "divergent" and trial_sig["root_count"] < 2 and trial_sig["max_out"] < 2:
+            return dag, False  # would break the parallel-gather floor
+        if flow == "convergent" and trial_sig["max_in"] < 2:
+            return dag, False  # would break the merge floor
 
     _resync_depth_topology(trial, trial.topology)
     return trial, True
@@ -583,22 +647,34 @@ def is_deterministic_move(move_id: str) -> bool:
     return move_id in DET_OPS
 
 
-def apply_move(dag: DAG, move_id: str, required: Optional[set] = None) -> Tuple[DAG, bool]:
+def apply_move(dag: DAG, move_id: str, required: Optional[set] = None,
+               partition_pairs: Optional[Dict] = None, req=None) -> Tuple[DAG, bool]:
     """Apply a deterministic structural move to a copy of `dag`. Returns
     (new_dag, changed). `changed=False` means the graph is already in the
     target shape (axis exhausted) -- the caller must NOT loop on it.
 
     `required` (a set/iterable of required functional role names, or None)
-    is only consumed by the role.* operators, which need it to know which
-    role is missing; flow/scale operators are pure functions of the graph
-    and ignore it -- existing callers passing only (dag, move_id) keep
-    working unchanged.
+    is consumed by the role.* operators (which role is missing) and by
+    scale.collapse_layer (v3.6 -- Fix C: which role must not be dropped).
+
+    `partition_pairs` (the EFTensor's measured output-similarity dict, or
+    None) and `req` (the RequiredStructure, or None) are consumed only by
+    partition.merge_redundant (v3.6 -- Fix A/B: real worst-pair selection
+    and the flow-preservation guard).
+
+    All other moves are pure functions of the graph and ignore these extra
+    kwargs -- existing callers passing only (dag, move_id) keep working
+    unchanged.
     """
     op = DET_OPS.get(move_id)
     if op is None:
         return dag, False
     if move_id.startswith("role."):
         return op(dag, required)
+    if move_id == "scale.collapse_layer":
+        return op(dag, req)
+    if move_id == "partition.merge_redundant":
+        return op(dag, partition_pairs, req)
     return op(dag)
 
 

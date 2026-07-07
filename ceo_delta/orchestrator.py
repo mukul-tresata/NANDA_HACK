@@ -136,7 +136,7 @@ class Orchestrator:
         # v3.0: open a fresh EF coordinate-descent for this task. Loads the
         # F-keyed move memory for this fingerprint class (learned + escalation
         # moves), so repeated species start their descent closer to F.
-        self.delta.begin_run(fingerprint)
+        self.delta.begin_run(fingerprint, task_raw=task)
 
         # --- iterative directive loop ---------------------------------------
         max_iter = self.cfg.max_ceo_eval_iterations
@@ -158,7 +158,7 @@ class Orchestrator:
             # Everything else (partition/role moves, escalations, iteration 0)
             # falls back to the stochastic CEO (re)plan below.
             dag, used_det_op = self._next_dag(
-                current_task, prev_directive, task_class, fingerprint,
+                current_task, prev_directive, task_class, fingerprint, task_raw=task,
             )
 
             # Structural gate: domain_volatility forces a verifier node.
@@ -172,8 +172,16 @@ class Orchestrator:
 
             # secondary Research pass on first iteration only
             if iteration == 0:
+                # A warm-started plan is a deliberately reused known-good plan
+                # for THIS exact task -- the secondary research replan must not
+                # discard it (that clobber is why reuse never stuck). Still run
+                # investigate() for the brief context; just don't let it replan
+                # a warm plan away. If the reused plan is actually wrong, the
+                # descent repairs it downstream like any other incumbent.
+                is_warm = any(getattr(n.why, "priors_used", "") == "warmstart"
+                              for n in dag.nodes)
                 brief = self.research.investigate(dag, specifics)
-                if brief.triggers_replan:
+                if brief.triggers_replan and not is_warm:
                     dag = self.ceo.replan(
                         task,
                         brief.summary,
@@ -417,7 +425,7 @@ class Orchestrator:
 
     # -- helpers -------------------------------------------------------------
 
-    def _next_dag(self, current_task, prev_directive, task_class, fingerprint):
+    def _next_dag(self, current_task, prev_directive, task_class, fingerprint, task_raw=None):
         """Produce the next plan for the directive loop.
 
         If the previous directive is a deterministic flow/scale move and we have
@@ -445,7 +453,7 @@ class Orchestrator:
             store = getattr(descent, "store", None)
             shape_key = fingerprint.shape_string()
             case = store.get(shape_key) if store is not None else None
-            if case and case.get("best_worst_excess", float("inf")) < 0 and case.get("best_plan", {}).get("nodes"):
+            if case and case.get("best_worst_excess", float("inf")) <= self.cfg.ef_mixed_margin and case.get("best_plan", {}).get("nodes"):
                 from .embeddings import embed, cosine
                 from .warmstart import dag_from_best_plan
                 # Task-IDENTITY gate (v3.6 fix): shape_key is purely STRUCTURAL
@@ -462,7 +470,8 @@ class Orchestrator:
                 # predates this fix) safely falls through to cold-plan below.
                 cached_emb = case["best_plan"].get("task_embedding")
                 if cached_emb:
-                    sim = cosine(embed(current_task), cached_emb)
+                    identity_task = task_raw if task_raw is not None else current_task
+                    sim = cosine(embed(identity_task), cached_emb)
                     if sim < self.cfg.warm_start_similarity_threshold:
                         cached_emb = None   # different task, same shape -> do NOT warm-start
                 if cached_emb:
@@ -485,7 +494,11 @@ class Orchestrator:
                 and descent._incumbent_dag is not None):
             required = getattr(descent, "req", None)  # the RequiredStructure this descent targets
             required_roles = getattr(required, "required_roles", None) if required else None
-            new_dag, changed = graph_ops.apply_move(descent._incumbent_dag, move_id, required=required_roles)
+            partition_pairs = getattr(descent._incumbent_ef, "partition_pairs", None)
+            new_dag, changed = graph_ops.apply_move(
+                descent._incumbent_dag, move_id, required=required_roles,
+                partition_pairs=partition_pairs, req=required,
+            )
             if changed:
                 new_dag.dag_id = f"{descent._incumbent_dag.dag_id}+{move_id}"
                 self.ceo._resolve_agents(new_dag, task_class)
