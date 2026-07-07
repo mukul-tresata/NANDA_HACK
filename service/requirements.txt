@@ -1,0 +1,5 @@
+# Service layer only. The core `ceo_delta` package stays stdlib-only.
+# Install with:  pip install -r service/requirements.txt
+fastapi>=0.110
+uvicorn[standard]>=0.29
+pydantic>=2.0
