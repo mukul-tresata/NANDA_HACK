@@ -349,6 +349,93 @@
   .mini-ax .track > i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; }
   .mini-ax .mv { font-family: var(--font-mono); font-size: 11px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 
+  /* ---------- static reference panels (Architecture / Methodology) ---------- */
+  .dot.info { background: var(--accent); box-shadow: 0 0 0 3px var(--accent-wash); }
+  .ref-tag { background: var(--accent-wash); color: var(--accent-2); }
+  .arch-block { padding: 22px 24px; margin-bottom: 16px; }
+  .block-title { font-size: 15.5px; font-weight: 640; margin: 0 0 4px; letter-spacing: -.008em; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .block-sub { font-size: 11.5px; font-weight: 500; color: var(--ink-3); font-family: var(--font-mono); letter-spacing: 0; }
+  .block-copy { color: var(--ink-2); font-size: 14px; line-height: 1.6; max-width: 74ch; margin: 10px 0 0; }
+  .block-copy + .block-copy { margin-top: 10px; }
+  .block-copy b { color: var(--ink); font-weight: 620; }
+
+  .hook-card { padding: 22px 24px; border-left: 3px solid var(--accent); }
+  .hook-lab { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--accent-2); font-weight: 600; }
+  .hook-text { font-size: 15.5px; line-height: 1.6; color: var(--ink); margin: 10px 0 0; font-style: italic; max-width: 72ch; }
+
+  .stepper { list-style: none; margin: 14px 0 0; padding: 0; position: relative; }
+  .stepper li { position: relative; padding: 0 0 20px 34px; }
+  .stepper li:last-child { padding-bottom: 0; }
+  .stepper li::before {
+    content: attr(data-n); position: absolute; left: 0; top: 0; width: 24px; height: 24px;
+    border-radius: 50%; background: var(--panel-2); border: 1px solid var(--line-2);
+    color: var(--ink-2); font-family: var(--font-mono); font-size: 10.5px; font-weight: 700;
+    display: grid; place-items: center;
+  }
+  .stepper li::after {
+    content: ""; position: absolute; left: 11.5px; top: 26px; bottom: -2px; width: 1px; background: var(--line);
+  }
+  .stepper li:last-child::after { display: none; }
+  .step-title { font-size: 13.5px; font-weight: 600; color: var(--ink); }
+  .step-title .mono { font-weight: 600; }
+  .step-detail { font-size: 13px; color: var(--ink-2); margin-top: 3px; line-height: 1.5; }
+  .step-tag {
+    display: inline-block; margin-left: 8px; font-family: var(--font-mono); font-size: 10px; font-weight: 700;
+    letter-spacing: .04em; color: var(--accent-2); background: var(--accent-wash); border-radius: 5px; padding: 1px 6px;
+    vertical-align: middle;
+  }
+  .stepper li.loop-start::before, .stepper li.loop-end::before { border-color: var(--accent); color: var(--accent-2); }
+
+  details.dgroup, details.ddec {
+    border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel-2);
+    margin-bottom: 9px; overflow: hidden;
+  }
+  details.dgroup summary, details.ddec summary {
+    cursor: pointer; padding: 12px 16px; font-size: 13.5px; font-weight: 600; color: var(--ink);
+    display: flex; align-items: center; justify-content: space-between; gap: 10px; list-style: none;
+  }
+  details.dgroup summary::-webkit-details-marker, details.ddec summary::-webkit-details-marker { display: none; }
+  details.dgroup summary::after, details.ddec summary::after {
+    content: "+"; font-family: var(--font-mono); color: var(--ink-3); font-size: 15px; font-weight: 400; flex-shrink: 0;
+  }
+  details[open].dgroup summary::after, details[open].ddec summary::after { content: "\2212"; }
+  details.dgroup summary .dcount { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); font-weight: 500; margin-right: auto; padding-left: 10px; }
+  .ddec summary .drule { font-family: var(--font-mono); font-size: 12.5px; }
+  .dgroup-body, .ddec-body { padding: 0 16px 14px; }
+  .ddec-body p { font-size: 13px; color: var(--ink-2); line-height: 1.55; margin: 0; }
+  .ddec-body p b { color: var(--accent-2); font-weight: 600; }
+
+  table.modmap { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  table.modmap td { padding: 7px 8px; border-top: 1px solid var(--line); vertical-align: top; }
+  table.modmap tr:first-child td { border-top: none; }
+  table.modmap td.mod { font-family: var(--font-mono); color: var(--ink); white-space: nowrap; font-weight: 600; }
+  table.modmap td.loc { font-family: var(--font-mono); color: var(--ink-3); text-align: right; white-space: nowrap; }
+  table.modmap td.role { color: var(--ink-2); }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 14px; }
+  .two-col h4 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-3); margin: 0 0 10px; font-weight: 650; }
+  .two-col ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 9px; }
+  .two-col li { font-size: 13px; color: var(--ink-2); line-height: 1.5; padding-left: 15px; position: relative; }
+  .two-col li::before { content: ""; position: absolute; left: 0; top: 7px; width: 6px; height: 6px; border-radius: 50%; background: var(--line-2); }
+  .two-col.orig li::before { background: var(--accent); }
+  .two-col li b { color: var(--ink); font-weight: 600; }
+
+  .codeblock {
+    font-family: var(--font-mono); font-size: 12.5px; background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: var(--radius-sm); padding: 12px 14px; margin: 12px 0 0; overflow-x: auto; color: var(--ink);
+    line-height: 1.6; white-space: pre;
+  }
+  .codeblock .cmt { color: var(--ink-3); }
+
+  ul.plainlist { margin: 10px 0 0; padding: 0 0 0 18px; }
+  ul.plainlist li { font-size: 13.5px; color: var(--ink-2); line-height: 1.6; margin-bottom: 6px; }
+  ul.plainlist li b { color: var(--ink); font-weight: 600; }
+  ul.plainlist li .mono { font-size: 12.5px; }
+
+  @media (max-width: 760px) {
+    .two-col { grid-template-columns: 1fr; }
+  }
+
   /* footer */
   footer { border-top: 1px solid var(--line); padding: 26px 0 40px; color: var(--ink-3); font-size: 12.5px; }
   footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
@@ -441,7 +528,229 @@
   <div class="claims-inner" id="claim-nav"></div>
 </nav>
 
-<main class="wrap" id="claims-root"></main>
+<main class="wrap">
+
+<section id="arch" class="panel reveal">
+  <div class="panel-head">
+    <div class="panel-eyebrow">
+      <span class="claim-no">Reference</span>
+      <span class="claim-name">Architecture</span>
+      <span class="verdict-tag ref-tag"><span class="ic">&#9670;</span>MODEL OVERVIEW</span>
+    </div>
+    <h2 class="headline">How CEO-Delta plans, measures, and repairs</h2>
+    <p class="subcopy">The mental model behind the five claims below — the shared coordinate system, the run pipeline, the module map, and the design decisions that separate this from an LLM in a loop.</p>
+  </div>
+
+  <div class="card hook-card">
+    <span class="hook-lab">Say this first &middot; ~30 seconds</span>
+    <p class="hook-text">&ldquo;Most agent systems plan by asking an LLM to think harder and hoping the plan is good. There's no notion of what a good plan even is, so there's nothing to measure, nothing to improve, and nothing to reuse. CEO-Delta starts from a different place: it treats task structure as a measurable quantity. It figures out what shape a task requires, measures how far the plan it built deviates from that shape, and repairs the plan with graph surgery under a guarantee that it can never make things worse. And because the measurement lives in a structural coordinate system, what it learns on one task transfers to every task of the same shape &mdash; even ones that share not a single word.&rdquo;</p>
+  </div>
+
+  <div class="card arch-block">
+    <h3 class="block-title">The one idea everything hangs on &mdash; E is the dual of F</h3>
+    <p class="block-copy">A single coordinate system, four structural axes: <span class="mono">partition &middot; flow &middot; role &middot; scale</span>.</p>
+    <p class="block-copy"><b>F (RequiredStructure)</b> &mdash; what structure the task requires, derived deterministically from the task's fingerprint. No LLM. "This is a divergent, retrieval task &rarr; it requires parallel gathering, a synthesizer, and depth &asymp; 3."</p>
+    <p class="block-copy"><b>E (EFTensor)</b> &mdash; how far the plan actually built and run deviates from F, measured per axis, each in <span class="mono">[0,1]</span>.</p>
+    <p class="block-copy">Error is measured <b>in fingerprint space</b> &mdash; E is the dual of F, same four axes. That's why improving a plan is literal coordinate descent (lock the worst axis, fix it, re-measure), and why learning transfers: error is invariant to phrasing, so a fix learned on one task applies to the whole structural class.</p>
+    <p class="block-copy">A second, content-quality tensor rides alongside &mdash; <span class="mono">groundedness &middot; relevance</span> (generation-side RAGAS, computed mechanically). The final verdict is <b>one uniform gate</b> over all six axes: every axis under threshold &rarr; good; one axis barely over &rarr; mixed; else &rarr; poor. No weighted sums collapsing axes into a single number &mdash; that's a deliberate stance, not an oversight.</p>
+  </div>
+
+  <div class="card arch-block">
+    <h3 class="block-title">The run pipeline <span class="block-sub">Orchestrator.run(task) &mdash; one public call, twelve steps</span></h3>
+    <ol class="stepper">
+      <li data-n="1"><div class="step-title">RESEARCH.clarify()</div><div class="step-detail">Raw intent &rarr; <span class="mono">TaskFingerprint</span> (the structural species) + <span class="mono">TaskSpecifics</span> (the actual content/constraints).<span class="step-tag">CLAIM 1 &middot; CAPTURE</span></div></li>
+      <li data-n="2"><div class="step-title">compute_required()</div><div class="step-detail">&rarr; F, the RequiredStructure. Deterministic.</div></li>
+      <li data-n="3" class="loop-start"><div class="step-title">Build next plan <span class="step-tag">directive / descent loop</span></div><div class="step-detail">Iteration 0: warm-start from a cached best-plan if one exists for this species; else the CEO cold-plans the DAG. Later iterations: if the directive names a deterministic move, apply it as a pure graph transform &mdash; no LLM.<span class="step-tag">CLAIM 4 &middot; REUSE</span></div></li>
+      <li data-n="4"><div class="step-title">Structural gate</div><div class="step-detail">Force a verifier node if domain volatility requires it &mdash; a code guarantee, not a prompt suggestion.</div></li>
+      <li data-n="5"><div class="step-title">Secondary research pass</div><div class="step-detail">Iteration 0 only; won't clobber a warm-started plan.</div></li>
+      <li data-n="6"><div class="step-title">KERNEL executes the DAG</div><div class="step-detail">Flows upstream outputs into downstream nodes &rarr; <span class="mono">ExecutionTrace</span>.</div></li>
+      <li data-n="7"><div class="step-title">DELTA audits</div><div class="step-detail"><span class="mono">compute_ef()</span> &rarr; E. <span class="mono">Descent.step()</span> picks the worst axis, emits a directive, and updates the incumbent under PRESERVE.<span class="step-tag">CLAIM 3 &middot; DESCEND</span></div></li>
+      <li data-n="8" class="loop-end"><div class="step-title">Best-plan tracking</div><div class="step-detail">Mirrors the descent's own incumbent decision. Loop breaks when the directive says "surface."</div></li>
+      <li data-n="9"><div class="step-title">Persist</div><div class="step-detail">This species' trajectory + best plan write to the F-keyed store &mdash; feeds REUSE on the next task of this shape.</div></li>
+      <li data-n="10"><div class="step-title">CEO.compose()</div><div class="step-detail">One coherent answer, in a single voice, from the winning DAG's work.</div></li>
+      <li data-n="11"><div class="step-title">Q-factor</div><div class="step-detail">Groundedness + relevance on the delivered answer, folded into the final verdict.</div></li>
+      <li data-n="12"><div class="step-title">Reflection &amp; return</div><div class="step-detail">Periodic between-run reflection, persist, return <span class="mono">RunResult</span>.</div></li>
+    </ol>
+    <p class="block-copy" style="margin-top:16px"><b>The two learning loops</b> &mdash; this is what makes it a system that learns, not just a pipeline. <b>Intra-run (DESCEND)</b>: the directive loop repairs the plan within one call. <b>Cross-run (REUSE)</b>: the store remembers the best plan per structural species; the next task of that shape starts warm.</p>
+  </div>
+
+  <div class="card arch-block">
+    <h3 class="block-title">Module map <span class="block-sub">~6.8k LOC across 24 modules</span></h3>
+
+    <details class="dgroup"><summary>Orchestration &amp; control <span class="dcount">3 modules</span></summary>
+      <div class="dgroup-body"><table class="modmap">
+        <tr><td class="mod">orchestrator.py</td><td class="loc">536</td><td class="role">The <span class="mono">run()</span> pipeline above; <span class="mono">RunResult</span>; wires every subsystem; owns the directive loop and best-plan tracking.</td></tr>
+        <tr><td class="mod">delta.py</td><td class="loc">803</td><td class="role">The Delta agent: audits a plan/trace, computes E, owns the Descent object, emits directives; produces <span class="mono">DeltaReport</span>.</td></tr>
+        <tr><td class="mod">descent.py</td><td class="loc">593</td><td class="role">Coordinate descent + the PRESERVE guarantee. Incumbent update with uphill rejection; maintains the traces the demo reads.</td></tr>
+      </table></div>
+    </details>
+
+    <details class="dgroup"><summary>Structure &mdash; F and E <span class="dcount">4 modules</span></summary>
+      <div class="dgroup-body"><table class="modmap">
+        <tr><td class="mod">schemas.py</td><td class="loc">399</td><td class="role">Every core dataclass: <span class="mono">TaskFingerprint, DAG, Node, Roles, Why, ExecutionTrace</span>, plus the agent registry.</td></tr>
+        <tr><td class="mod">ef.py</td><td class="loc">284</td><td class="role"><span class="mono">RequiredStructure</span> (F), <span class="mono">compute_required</span>, <span class="mono">graph_signature</span>, the four per-axis error functions, the verdict gates.</td></tr>
+        <tr><td class="mod">error_tensor.py</td><td class="loc">308</td><td class="role">Legacy execution tensor (drift/echo/cascade/role/resource) + hysteresis + violation ranking; still used for escalation continuity.</td></tr>
+        <tr><td class="mod">role_features.py</td><td class="loc">114</td><td class="role">Behavioral profile of a node's output vs. per-role bands; backs the role axis.</td></tr>
+      </table></div>
+    </details>
+
+    <details class="dgroup"><summary>Planning &amp; execution <span class="dcount">6 modules</span></summary>
+      <div class="dgroup-body"><table class="modmap">
+        <tr><td class="mod">research.py</td><td class="loc">254</td><td class="role">The Research agent: a parser, not a learner &mdash; raw intent &rarr; (fingerprint, specifics).</td></tr>
+        <tr><td class="mod">ceo.py</td><td class="loc">433</td><td class="role">The CEO planner: fingerprint &rarr; handbook &rarr; DAG; also <span class="mono">replan</span>, <span class="mono">force_verifier</span>, and <span class="mono">compose</span> (the single voice).</td></tr>
+        <tr><td class="mod">kernel.py</td><td class="loc">203</td><td class="role">The execution kernel (KAIJU-inspired); runs the DAG, flows outputs downstream.</td></tr>
+        <tr><td class="mod">grounding.py</td><td class="loc">143</td><td class="role">Retriever nodes call <span class="mono">retrieve()</span> instead of hallucinating; backend-agnostic seam.</td></tr>
+        <tr><td class="mod">llm.py</td><td class="loc">204</td><td class="role">vLLM OpenAI-compatible client (self-hosted Qwen); defensive JSON extraction.</td></tr>
+        <tr><td class="mod">embeddings.py</td><td class="loc">31</td><td class="role"><span class="mono">embed()</span> / <span class="mono">cosine()</span> over a small sentence-transformer.</td></tr>
+      </table></div>
+    </details>
+
+    <details class="dgroup"><summary>Repair repertoire <span class="dcount">2 modules</span></summary>
+      <div class="dgroup-body"><table class="modmap">
+        <tr><td class="mod">graph_ops.py</td><td class="loc">688</td><td class="role">The 10 pure graph transforms + <span class="mono">DET_OPS</span> registry + <span class="mono">apply_move</span> routing.</td></tr>
+        <tr><td class="mod">moves.py</td><td class="loc">228</td><td class="role">Table lookup that picks which edit to attempt from (worst axis, F, signature, history). What makes descent deterministic.</td></tr>
+      </table></div>
+    </details>
+
+    <details class="dgroup"><summary>Learning &amp; memory <span class="dcount">8 modules</span></summary>
+      <div class="dgroup-body"><table class="modmap">
+        <tr><td class="mod">ef_store.py</td><td class="loc">229</td><td class="role">F-keyed case memory; writes the per-species best plan &mdash; the E&ndash;F coupling made persistent.</td></tr>
+        <tr><td class="mod">warmstart.py</td><td class="loc">74</td><td class="role">The read side of best-plan; reconstructs a runnable DAG.</td></tr>
+        <tr><td class="mod">handbook.py</td><td class="loc">132</td><td class="role">Topology/depth vote tallies with symmetric decay; CEO's prior.</td></tr>
+        <tr><td class="mod">escalation.py</td><td class="loc">246</td><td class="role">Case-based escalation: nearest precedent by weighted cosine, role-gated, LLM fallback below floor.</td></tr>
+        <tr><td class="mod">bootstrap.py</td><td class="loc">173</td><td class="role">Cold-start seeding so run 1 isn't empty.</td></tr>
+        <tr><td class="mod">reflection.py</td><td class="loc">93</td><td class="role">Periodic between-run reflection.</td></tr>
+        <tr><td class="mod">runlog.py</td><td class="loc">167</td><td class="role">Append-only JSONL per-run record.</td></tr>
+        <tr><td class="mod">quality.py</td><td class="loc">130</td><td class="role">The Q-factor (groundedness, relevance), mechanical, no LLM judge.</td></tr>
+      </table></div>
+    </details>
+
+    <details class="dgroup"><summary>Config <span class="dcount">1 module</span></summary>
+      <div class="dgroup-body"><table class="modmap">
+        <tr><td class="mod">config.py</td><td class="loc">197</td><td class="role">All thresholds and knobs.</td></tr>
+      </table></div>
+    </details>
+  </div>
+
+  <div class="card arch-block">
+    <h3 class="block-title">Design decisions <span class="block-sub">the &ldquo;why&rdquo; a smart CEO will probe</span></h3>
+
+    <details class="ddec"><summary><span class="drule">1. Unreduced tensor</span></summary>
+      <div class="ddec-body"><p>Never collapse axes into a scalar. A weighted sum throws away <i>which</i> thing is wrong and lets a good axis mask a bad one. Instead: gates, banding, and rule-matching on the raw vector. <b>Why:</b> the directive can target the actual failure.</p></div>
+    </details>
+    <details class="ddec"><summary><span class="drule">2. F is deterministic</span></summary>
+      <div class="ddec-body"><p>No LLM in the measurement path. F is a pure function of the fingerprint; E is topology + embedding math. <b>Why:</b> the verdict is reproducible and defensible.</p></div>
+    </details>
+    <details class="ddec"><summary><span class="drule">3. E is the dual of F (shared basis)</span></summary>
+      <div class="ddec-body"><p>The single most important choice. It's what turns repair into coordinate descent and memory into transfer. Without it, you have two unrelated representations and no leverage.</p></div>
+    </details>
+    <details class="ddec"><summary><span class="drule">4. PRESERVE &mdash; monotone incumbent, uphill rejection</span></summary>
+      <div class="ddec-body"><p>A new plan becomes the delivered plan only if its worst axis is no worse than the best so far; otherwise it's rejected and descent keeps building from the incumbent. <b>Why:</b> one bad LLM re-roll can no longer poison the run &mdash; this is the headline guarantee.</p></div>
+    </details>
+    <details class="ddec"><summary><span class="drule">5. Lexicographic incumbent &mdash; structure primary, content secondary</span></summary>
+      <div class="ddec-body"><p>On a structural tie, Q breaks it &mdash; but Q can never justify regressing structure. <b>Why:</b> prevents a pretty-but-wrong-shaped answer from winning.</p></div>
+    </details>
+    <details class="ddec"><summary><span class="drule">6. Deterministic graph operators, not &ldquo;reconsider from first principles&rdquo;</span></summary>
+      <div class="ddec-body"><p>Which edit to attempt is a table lookup; the edit itself is a pure graph transform. The LLM is one competing move, not the whole mechanism. <b>Why:</b> the repair is inspectable and repeatable &mdash; and under PRESERVE, a bad LLM move just gets rejected.</p></div>
+    </details>
+    <details class="ddec"><summary><span class="drule">7. Species as a controlled vocabulary</span></summary>
+      <div class="ddec-body"><p>The fingerprint's shape string is drawn from a tiny fixed set of axis values, so exact string match = same structural class. <b>Why:</b> clean, non-arbitrary equivalence classes &mdash; the backbone of GENERALIZE and REUSE.</p></div>
+    </details>
+    <details class="ddec"><summary><span class="drule">8. Modifier axes are not embedded</span></summary>
+      <div class="ddec-body"><p>Complexity and domain volatility drive scalar behavior (depth budget, mandatory verifier) via direct gates, never similarity. <b>Why:</b> they'd pollute the structural key if embedded.</p></div>
+    </details>
+    <details class="ddec"><summary><span class="drule">9. Structural gates as code guarantees, not prompt suggestions</span></summary>
+      <div class="ddec-body"><p>A live-data task gets a verifier node &mdash; the planner's output is checked and patched if it skipped one. <b>Why:</b> &ldquo;please verify&rdquo; in a prompt is not a guarantee; code is.</p></div>
+    </details>
+    <details class="ddec"><summary><span class="drule">10. Single-voice composition</span></summary>
+      <div class="ddec-body"><p>The winning node's raw output is not the deliverable &mdash; the CEO composes one coherent answer, and never fails on this step (falls back to the raw answer). <b>Why:</b> a coherent entity, not a pile of node outputs.</p></div>
+    </details>
+    <details class="ddec"><summary><span class="drule">11. Warm-start is initialization, not lookup</span></summary>
+      <div class="ddec-body"><p>A reused plan is a starting point the descent can still repair. <b>Why:</b> transfer without brittleness.</p></div>
+    </details>
+  </div>
+
+  <div class="card arch-block">
+    <h3 class="block-title">Borrowed vs. original <span class="block-sub">honest attribution reads as maturity</span></h3>
+    <div class="two-col">
+      <div>
+        <h4>Adopted from outside</h4>
+        <ul>
+          <li><b>Sentence embeddings</b> &mdash; all-MiniLM-L6-v2, 384-dim unit vectors. Every cosine in the system runs on this geometry.</li>
+          <li><b>LLM backend</b> &mdash; vLLM (OpenAI-compatible), Qwen-family, self-hosted; the system is model-agnostic behind it.</li>
+          <li><b>RAGAS metrics</b> &mdash; concept borrowed; the implementation is a mechanical, generation-side, de-LLM'd version.</li>
+          <li><b>Coordinate descent</b> &mdash; borrowed framing that fits because E and F share a basis.</li>
+          <li><b>Warm-starting an optimizer</b> &mdash; precisely what REUSE is.</li>
+          <li><b>Hysteresis</b> &mdash; a one-iteration grace margin after a refine, so a just-fixed axis isn't re-flagged by noise.</li>
+          <li><b>Case-based reasoning</b> &mdash; the store keeps concrete exemplars, not abstract rules.</li>
+          <li><b>Pareto dominance</b> &mdash; legacy best-plan selector on non-EF paths, superseded by PRESERVE.</li>
+          <li><b>Centrality weighting</b> &mdash; error contributions weighted by node in-degree.</li>
+          <li><b>KAIJU-inspired execution kernel</b> &mdash; the DAG execution/context-flow design draws on that lineage.</li>
+          <li><b>Grounding via web search</b> &mdash; today's retriever backend; deliberately swappable to a NANDA agent-directory backend.</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Original to CEO-Delta</h4>
+        <ul class="orig">
+          <li>The <b>E-is-the-dual-of-F</b> coordinate system.</li>
+          <li>The <b>PRESERVE</b> monotone-descent guarantee.</li>
+          <li>The <b>deterministic graph-operator repertoire</b> + table-driven selection.</li>
+          <li>The <b>structural-species key</b> that gives transfer.</li>
+          <li>The <b>behavioral-band role error</b> &mdash; replacing a keyword-scan boolean with a text-derived profile against per-role bands.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div id="claims-root"></div>
+
+<section id="methodology" class="panel reveal">
+  <div class="panel-head">
+    <div class="panel-eyebrow">
+      <span class="claim-no">Reference</span>
+      <span class="claim-name">Methodology</span>
+      <span class="verdict-tag ref-tag"><span class="ic">&#9670;</span>ABOUT EVIDENCE.PY</span>
+    </div>
+    <h2 class="headline">Where these numbers come from</h2>
+    <p class="subcopy">Every claim above is read from a JSON file this script writes &mdash; nothing on this page is invented or hand-tuned for the demo.</p>
+  </div>
+
+  <div class="card arch-block">
+    <h3 class="block-title">Running the battery</h3>
+    <p class="block-copy"><span class="mono">scripts/evidence.py</span> prints a live, human-readable trace of all 5 claims, then writes <span class="mono">scripts/evidence_results.json</span> &mdash; the machine-readable payload this page renders. Re-run it any time to refresh the data; drop the resulting file onto this page to load it.</p>
+    <div class="codeblock"><span class="cmt"># full evidence battery &mdash; (re)writes scripts/evidence_results.json</span>
+python3 -u scripts/evidence.py
+
+<span class="cmt"># one task, programmatically</span>
+python3 -c "from ceo_delta import Orchestrator, Config; \
+r = Orchestrator(Config(), workdir='.demo').run('Explain how a C compiler works'); \
+print(r.report.verdict, r.report.ef_tensor)"</div>
+    <p class="block-copy">The richest live object is <span class="mono">RunResult</span> (returned by <span class="mono">Orchestrator.run()</span>): <span class="mono">answer, report.verdict, report.ef_tensor, report.q_tensor, report.required_structure, iterations, ef_trace, ef_incumbent_trace</span> (the monotone curve), <span class="mono">ef_move_log, dag.nodes</span>.</p>
+  </div>
+
+  <div class="card arch-block">
+    <h3 class="block-title">Reliability, claim by claim</h3>
+    <ul class="plainlist">
+      <li><b>CAPTURE, GENERALIZE, CONVERGE</b> are deterministic or near-deterministic &mdash; safe to run live.</li>
+      <li><b>DESCEND</b> asserts only architecturally-guaranteed facts: monotone incumbent, a deterministic op fired, a worse move rejected. It does not depend on lucky convergence &mdash; the <i>magnitude</i> of improvement can vary run to run, the monotonicity cannot. Lead with the invariant, not with which operator happened to fire.</li>
+      <li><b>REUSE</b> uses a stable-domain task specifically so the cached plan is reproducible and the warm-start marker sticks.</li>
+    </ul>
+  </div>
+
+  <div class="card arch-block">
+    <h3 class="block-title">Honest limitations <span class="block-sub">say these plainly if asked</span></h3>
+    <ul class="plainlist">
+      <li>The <b>partition</b> axis is measured from execution outputs, so on similar-format-but-distinct-content parallel branches (e.g. flight vs. hotel retrievers) it can read a false redundancy. PRESERVE contains the damage &mdash; the bad merge is rejected &mdash; but the axis itself is a known imperfection; the principled fix is measuring partition from plan-time intent embeddings.</li>
+      <li>DESCEND's deterministic operators are <b>stochastic to trigger</b> &mdash; a given cold-plan may need an LLM move or a deterministic one. The guarantee holds every run; which operator fires does not.</li>
+      <li><b>CONVERGE is N=3</b>, one mixed &mdash; illustrative of region-stability, not a statistical benchmark.</li>
+      <li><b>Grounding is a seam</b> &mdash; the retrieval backend is swappable; built for a NANDA agent-directory backend, demoed with web search.</li>
+      <li>This is a <b>research prototype</b>: single machine, self-hosted model, no multi-tenant hardening.</li>
+    </ul>
+  </div>
+</section>
+
+</main>
 
 <footer>
   <div class="wrap">
@@ -603,15 +912,23 @@ function render(data) {
   $("#stat-elapsed").textContent = fmtElapsed(data.elapsed_s);
   $("#foot-meta").textContent = (isSample ? "sample · " : "measured · ") + fmtTimestamp(data.generated_at);
 
-  // nav
+  // nav — static reference pills flank the dynamic claim pills
   const nav = $("#claim-nav");
   nav.innerHTML = "";
+  const archPill = el("a", "navpill");
+  archPill.href = "#arch";
+  archPill.innerHTML = `<span class="n">&#9670;</span>Architecture<span class="dot info"></span>`;
+  nav.appendChild(archPill);
   (data.claims || []).forEach((c, i) => {
     const a = el("a", "navpill");
     a.href = "#" + esc(c.id);
     a.innerHTML = `<span class="n">${String(i+1).padStart(2,"0")}</span>${esc(c.name)}<span class="dot ${c.passed?"":"fail"}"></span>`;
     nav.appendChild(a);
   });
+  const methPill = el("a", "navpill");
+  methPill.href = "#methodology";
+  methPill.innerHTML = `<span class="n">&#9670;</span>Methodology<span class="dot info"></span>`;
+  nav.appendChild(methPill);
 
   // panels
   const root = $("#claims-root");
