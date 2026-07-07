@@ -1,0 +1,1114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CEO-Delta · Evidence Console</title>
+<style>
+  /* ============================================================
+     CEO-Delta — Evidence Console
+     Self-contained. No network calls. Offline-safe (file://).
+     Drop scripts/evidence_results.json onto the page to load a
+     fresh run; sample data is embedded so the page renders on open.
+     ============================================================ */
+
+  :root {
+    /* cool-graphite instrument palette — light */
+    --ground:    #F1F4F5;
+    --panel:     #FFFFFF;
+    --panel-2:   #F7F9FA;
+    --ink:       #101619;
+    --ink-2:     #47555C;
+    --ink-3:     #7C888E;
+    --line:      #E1E7EA;
+    --line-2:    #D2DADE;
+    --accent:    #0E8C99;
+    --accent-2:  #0B707B;
+    --accent-wash:#E2F2F3;
+    --good:      #2E9E5B;
+    --good-wash: #E4F3EA;
+    --warn:      #B9821A;
+    --warn-wash: #F6ECD8;
+    --bad:       #D24545;
+    --bad-wash:  #F8E4E4;
+    --region:    rgba(46,158,91,0.10);
+    --grid:      rgba(16,22,25,0.05);
+    --shadow:    0 1px 2px rgba(16,22,25,.04), 0 8px 28px rgba(16,22,25,.06);
+
+    --font-sans: "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, "Helvetica Neue", Arial, sans-serif;
+    --font-mono: "SF Mono", "JetBrains Mono", "Cascadia Code", "Roboto Mono", ui-monospace, Menlo, Consolas, monospace;
+
+    --maxw: 1080px;
+    --radius: 14px;
+    --radius-sm: 9px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground:    #0D1114;
+      --panel:     #151C20;
+      --panel-2:   #101619;
+      --ink:       #EAEFF1;
+      --ink-2:     #A6B2B8;
+      --ink-3:     #6C787E;
+      --line:      #232C31;
+      --line-2:    #2E393F;
+      --accent:    #26BDCB;
+      --accent-2:  #4FD3DE;
+      --accent-wash:#0F2A2E;
+      --good:      #37B96D;
+      --good-wash: #10281C;
+      --warn:      #D3A03F;
+      --warn-wash: #2C2410;
+      --bad:       #E5605F;
+      --bad-wash:  #2E1616;
+      --region:    rgba(55,185,109,0.13);
+      --grid:      rgba(255,255,255,0.045);
+      --shadow:    0 1px 2px rgba(0,0,0,.35), 0 10px 34px rgba(0,0,0,.42);
+    }
+  }
+  /* explicit toggle wins over media query, both directions */
+  :root[data-theme="light"] {
+    --ground:#F1F4F5; --panel:#FFFFFF; --panel-2:#F7F9FA; --ink:#101619;
+    --ink-2:#47555C; --ink-3:#7C888E; --line:#E1E7EA; --line-2:#D2DADE;
+    --accent:#0E8C99; --accent-2:#0B707B; --accent-wash:#E2F2F3;
+    --good:#2E9E5B; --good-wash:#E4F3EA; --warn:#B9821A; --warn-wash:#F6ECD8;
+    --bad:#D24545; --bad-wash:#F8E4E4; --region:rgba(46,158,91,0.10);
+    --grid:rgba(16,22,25,0.05); --shadow:0 1px 2px rgba(16,22,25,.04), 0 8px 28px rgba(16,22,25,.06);
+  }
+  :root[data-theme="dark"] {
+    --ground:#0D1114; --panel:#151C20; --panel-2:#101619; --ink:#EAEFF1;
+    --ink-2:#A6B2B8; --ink-3:#6C787E; --line:#232C31; --line-2:#2E393F;
+    --accent:#26BDCB; --accent-2:#4FD3DE; --accent-wash:#0F2A2E;
+    --good:#37B96D; --good-wash:#10281C; --warn:#D3A03F; --warn-wash:#2C2410;
+    --bad:#E5605F; --bad-wash:#2E1616; --region:rgba(55,185,109,0.13);
+    --grid:rgba(255,255,255,0.045); --shadow:0 1px 2px rgba(0,0,0,.35), 0 10px 34px rgba(0,0,0,.42);
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 28px; }
+
+  /* ---------- top bar / loader ---------- */
+  header.top {
+    position: sticky; top: 0; z-index: 50;
+    background: color-mix(in srgb, var(--ground) 86%, transparent);
+    backdrop-filter: saturate(1.4) blur(10px);
+    -webkit-backdrop-filter: saturate(1.4) blur(10px);
+    border-bottom: 1px solid var(--line);
+  }
+  .top-inner {
+    max-width: var(--maxw); margin: 0 auto; padding: 12px 28px;
+    display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+  }
+  .brand { display: flex; align-items: baseline; gap: 10px; margin-right: auto; }
+  .brand .glyph {
+    font-family: var(--font-mono); font-weight: 700; font-size: 15px;
+    letter-spacing: .04em; color: var(--accent);
+    border: 1.5px solid var(--accent); border-radius: 7px;
+    padding: 2px 8px; line-height: 1;
+  }
+  .brand .name { font-weight: 650; letter-spacing: -.01em; font-size: 15px; }
+  .brand .sub { color: var(--ink-3); font-size: 12.5px; }
+
+  .status-strip { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .status-item { display: flex; flex-direction: column; line-height: 1.2; }
+  .status-item .k { font-size: 10px; text-transform: uppercase; letter-spacing: .09em; color: var(--ink-3); }
+  .status-item .v { font-family: var(--font-mono); font-size: 12.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+
+  .badge {
+    font-family: var(--font-mono); font-size: 10.5px; font-weight: 600;
+    letter-spacing: .06em; text-transform: uppercase;
+    padding: 3px 8px; border-radius: 999px; white-space: nowrap;
+  }
+  .badge.sample { background: var(--warn-wash); color: var(--warn); border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent); }
+  .badge.live   { background: var(--good-wash); color: var(--good); border: 1px solid color-mix(in srgb, var(--good) 35%, transparent); }
+
+  .btn {
+    font-family: var(--font-sans); font-size: 13px; font-weight: 550;
+    color: var(--ink); background: var(--panel);
+    border: 1px solid var(--line-2); border-radius: 9px;
+    padding: 7px 13px; cursor: pointer; transition: border-color .15s, background .15s;
+  }
+  .btn:hover { border-color: var(--accent); }
+  .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .theme-toggle {
+    background: transparent; border: 1px solid var(--line-2); color: var(--ink-2);
+    width: 34px; height: 34px; border-radius: 9px; cursor: pointer; font-size: 15px;
+    display: grid; place-items: center;
+  }
+  .theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
+  .theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* ---------- drop overlay ---------- */
+  #drop-overlay {
+    position: fixed; inset: 0; z-index: 200; display: none;
+    background: color-mix(in srgb, var(--ground) 72%, transparent);
+    backdrop-filter: blur(3px);
+    place-items: center; padding: 40px;
+  }
+  #drop-overlay.on { display: grid; }
+  .drop-card {
+    border: 2px dashed var(--accent); border-radius: 20px;
+    background: var(--panel); padding: 48px 64px; text-align: center; box-shadow: var(--shadow);
+  }
+  .drop-card .big { font-size: 20px; font-weight: 650; margin-bottom: 6px; }
+  .drop-card .small { color: var(--ink-3); font-size: 13.5px; }
+  .drop-card .ic { font-size: 34px; margin-bottom: 10px; }
+
+  /* ---------- hero ---------- */
+  .hero { position: relative; overflow: hidden; border-bottom: 1px solid var(--line); }
+  .hero::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 34px 34px;
+    mask-image: radial-gradient(120% 80% at 78% 0%, #000 0%, transparent 68%);
+    -webkit-mask-image: radial-gradient(120% 80% at 78% 0%, #000 0%, transparent 68%);
+  }
+  .hero-inner { position: relative; padding: 56px 0 46px; }
+  .eyebrow {
+    font-family: var(--font-mono); font-size: 11.5px; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--accent); font-weight: 600; margin-bottom: 16px;
+  }
+  h1.title {
+    font-size: clamp(30px, 5vw, 46px); line-height: 1.05; letter-spacing: -.022em;
+    font-weight: 680; margin: 0 0 18px; text-wrap: balance; max-width: 16ch;
+  }
+  .lede { font-size: clamp(15px, 2.1vw, 18px); color: var(--ink-2); max-width: 62ch; margin: 0; line-height: 1.5; }
+  .lede b { color: var(--ink); font-weight: 620; }
+  .basis-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 26px; }
+  .basis-label { font-family: var(--font-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); }
+  .axis-chip {
+    font-family: var(--font-mono); font-size: 12px; padding: 4px 10px; border-radius: 8px;
+    background: var(--panel); border: 1px solid var(--line-2); color: var(--ink-2);
+  }
+  .axis-chip.q { border-style: dashed; }
+
+  /* ---------- claim nav ---------- */
+  nav.claims {
+    position: sticky; top: 58px; z-index: 40;
+    background: color-mix(in srgb, var(--ground) 86%, transparent);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+  }
+  .claims-inner { max-width: var(--maxw); margin: 0 auto; padding: 9px 28px; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
+  .claims-inner::-webkit-scrollbar { display: none; }
+  .navpill {
+    display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
+    text-decoration: none; color: var(--ink-2); font-size: 12.5px; font-weight: 550;
+    padding: 6px 12px; border-radius: 999px; border: 1px solid transparent; transition: all .15s;
+  }
+  .navpill .n { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); }
+  .navpill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--good); box-shadow: 0 0 0 3px var(--good-wash); }
+  .navpill .dot.fail { background: var(--bad); box-shadow: 0 0 0 3px var(--bad-wash); }
+  .navpill:hover { background: var(--panel); border-color: var(--line-2); color: var(--ink); }
+  .navpill.active { background: var(--panel); border-color: var(--accent); color: var(--ink); }
+  .navpill:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* ---------- panels ---------- */
+  main { padding: 8px 0 90px; }
+  .panel { padding: 54px 0 10px; scroll-margin-top: 112px; }
+  .panel-head { margin-bottom: 22px; }
+  .panel-eyebrow { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+  .claim-no { font-family: var(--font-mono); font-size: 12px; color: var(--ink-3); letter-spacing: .05em; }
+  .claim-name { font-family: var(--font-mono); font-size: 12px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--accent); }
+  .verdict-tag {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600;
+    font-family: var(--font-mono); letter-spacing: .04em; padding: 3px 9px 3px 7px; border-radius: 999px;
+  }
+  .verdict-tag.pass { background: var(--good-wash); color: var(--good); }
+  .verdict-tag.fail { background: var(--bad-wash); color: var(--bad); }
+  .verdict-tag .ic { font-size: 12px; }
+  h2.headline { font-size: clamp(21px, 3vw, 27px); line-height: 1.2; letter-spacing: -.015em; font-weight: 640; margin: 0; text-wrap: balance; max-width: 24ch; }
+  .subcopy { color: var(--ink-2); font-size: 14.5px; margin: 10px 0 0; max-width: 66ch; }
+
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+
+  /* CAPTURE — task cards */
+  .capture-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .task-card { padding: 20px 18px; display: flex; flex-direction: column; gap: 16px; }
+  .task-card .qline { font-size: 14.5px; line-height: 1.45; color: var(--ink); font-weight: 500; }
+  .task-card .qline::before { content: "\201C"; color: var(--accent); font-weight: 700; }
+  .task-card .qline::after { content: "\201D"; color: var(--accent); font-weight: 700; }
+  .species { display: grid; gap: 7px; }
+  .sattr { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .sattr .lab { font-size: 10px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-3); }
+  .sattr .val { font-family: var(--font-mono); font-size: 12px; color: var(--ink); background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 2px 8px; }
+
+  /* GENERALIZE — the climax */
+  .gen-stage { padding: 30px 26px 26px; }
+  .gen-two { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 20px; }
+  .gen-sent {
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius-sm);
+    padding: 20px 18px; font-size: 15px; line-height: 1.45; position: relative;
+  }
+  .gen-sent .tag { font-family: var(--font-mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); display: block; margin-bottom: 9px; }
+  .gen-sent .txt::before { content: "\201C"; color: var(--ink-3); }
+  .gen-sent .txt::after { content: "\201D"; color: var(--ink-3); }
+  .cosine-gate { display: grid; place-items: center; gap: 6px; text-align: center; min-width: 128px; }
+  .cosine-num { font-family: var(--font-mono); font-size: 30px; font-weight: 700; letter-spacing: -.02em; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .cosine-lab { font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-3); }
+  .cosine-verdict { font-size: 11.5px; font-weight: 600; color: var(--bad); background: var(--bad-wash); padding: 3px 9px; border-radius: 999px; }
+  .cosine-bar { width: 108px; height: 6px; border-radius: 999px; background: var(--line); overflow: hidden; }
+  .cosine-bar > i { display: block; height: 100%; background: var(--ink-3); border-radius: 999px; }
+  .collapse-row { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: 26px; }
+  .collapse-arrow { display: flex; align-items: center; gap: 10px; color: var(--accent); font-family: var(--font-mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }
+  .collapse-arrow .ln { width: 46px; height: 1.5px; background: linear-gradient(90deg, transparent, var(--accent)); }
+  .collapse-arrow .ln.r { background: linear-gradient(90deg, var(--accent), transparent); }
+  .unified-species {
+    border: 1.5px solid var(--accent); background: var(--accent-wash); border-radius: var(--radius-sm);
+    padding: 16px 20px; display: flex; align-items: center; gap: 12px 22px; flex-wrap: wrap; justify-content: center;
+  }
+  .unified-species .u-lab { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--accent-2); }
+  .uchip { font-family: var(--font-mono); font-size: 12.5px; color: var(--ink); }
+  .uchip b { color: var(--accent-2); }
+
+  /* DESCEND */
+  .descend-grid { display: grid; grid-template-columns: 1.35fr 1fr; gap: 16px; align-items: stretch; }
+  .chart-card { padding: 20px 20px 14px; display: flex; flex-direction: column; }
+  .chart-title { font-size: 12.5px; font-weight: 600; color: var(--ink-2); margin-bottom: 2px; }
+  .chart-sub { font-size: 11.5px; color: var(--ink-3); margin-bottom: 8px; }
+  .chart-holder { flex: 1; min-height: 0; }
+  svg.descent { width: 100%; height: auto; display: block; }
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+  .tile { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 12px 13px; box-shadow: var(--shadow); }
+  .tile .k { font-size: 10px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-3); margin-bottom: 5px; }
+  .tile .v { font-family: var(--font-mono); font-size: 20px; font-weight: 650; line-height: 1; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .tile .v.good { color: var(--good); } .tile .v.bad { color: var(--bad); } .tile .v.warn { color: var(--warn); }
+  .movelog { display: flex; flex-direction: column; gap: 8px; }
+  .move {
+    display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px;
+    padding: 10px 12px; border-radius: var(--radius-sm); border: 1px solid var(--line); background: var(--panel);
+  }
+  .move.kept { border-left: 3px solid var(--good); }
+  .move.rejected { border-left: 3px solid var(--bad); }
+  .move .mic { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; color: #fff; }
+  .move.kept .mic { background: var(--good); } .move.rejected .mic { background: var(--bad); }
+  .move .mid { font-family: var(--font-mono); font-size: 12.5px; color: var(--ink); }
+  .move .maxis { font-size: 10.5px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .05em; }
+  .move .mdelta { font-family: var(--font-mono); font-size: 12px; color: var(--ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .move .mdelta .to { color: var(--ink); font-weight: 600; }
+
+  /* tensor heat-strip */
+  .tensor-wrap { margin-top: 16px; overflow-x: auto; }
+  table.tensor { border-collapse: separate; border-spacing: 4px; width: 100%; min-width: 420px; }
+  table.tensor th { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-3); font-weight: 600; text-align: center; padding: 2px 4px; }
+  table.tensor th.rowlab, table.tensor td.rowlab { text-align: left; font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); white-space: nowrap; }
+  table.tensor td.cell { text-align: center; font-family: var(--font-mono); font-size: 12.5px; font-variant-numeric: tabular-nums; border-radius: 7px; padding: 8px 6px; color: var(--ink); border: 1px solid transparent; }
+  .cell.under { background: var(--good-wash); color: var(--good); }
+  .cell.over  { background: var(--bad-wash); color: var(--bad); }
+  .cell.zero  { background: var(--panel-2); color: var(--ink-3); }
+
+  /* REUSE */
+  .reuse-rows { display: grid; gap: 12px; padding: 20px; }
+  .run-row { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 16px; padding: 16px 18px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel-2); }
+  .run-row.warm { background: var(--accent-wash); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+  .run-label { font-family: var(--font-mono); font-size: 13px; font-weight: 600; color: var(--ink); }
+  .run-note { font-size: 12.5px; color: var(--ink-3); }
+  .run-metric { text-align: right; }
+  .run-metric .k { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-3); }
+  .run-metric .v { font-family: var(--font-mono); font-size: 17px; font-weight: 650; color: var(--ink); }
+  .warm-badge { font-family: var(--font-mono); font-size: 11px; font-weight: 600; color: var(--accent-2); background: var(--panel); border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); border-radius: 999px; padding: 4px 10px; white-space: nowrap; }
+  .cold-badge { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); border: 1px solid var(--line-2); border-radius: 999px; padding: 4px 10px; white-space: nowrap; }
+
+  /* CONVERGE */
+  .converge-card { padding: 22px 22px 18px; }
+  .region-plot { position: relative; margin: 8px 0 22px; }
+  svg.region { width: 100%; height: auto; display: block; }
+  .converge-legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 12px; color: var(--ink-2); margin-top: 4px; }
+  .lg { display: inline-flex; align-items: center; gap: 7px; }
+  .lg .sw { width: 12px; height: 12px; border-radius: 3px; border: 1px solid var(--line-2); }
+  .reps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 4px; }
+  .rep { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 14px; background: var(--panel-2); }
+  .rep .rhead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .rep .seed { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .06em; }
+  .vpill { font-family: var(--font-mono); font-size: 11px; font-weight: 600; padding: 2px 9px; border-radius: 999px; }
+  .vpill.good { background: var(--good-wash); color: var(--good); }
+  .vpill.mixed { background: var(--warn-wash); color: var(--warn); }
+  .vpill.poor { background: var(--bad-wash); color: var(--bad); }
+  .mini-ax { display: grid; gap: 5px; }
+  .mini-ax .mrow { display: grid; grid-template-columns: 58px 1fr auto; align-items: center; gap: 8px; }
+  .mini-ax .mrow .ml { font-size: 10px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .04em; }
+  .mini-ax .track { height: 5px; background: var(--line); border-radius: 999px; position: relative; overflow: hidden; }
+  .mini-ax .track > i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; }
+  .mini-ax .mv { font-family: var(--font-mono); font-size: 11px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+
+  /* footer */
+  footer { border-top: 1px solid var(--line); padding: 26px 0 40px; color: var(--ink-3); font-size: 12.5px; }
+  footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  footer .mono { color: var(--ink-3); }
+
+  /* reveal animation */
+  .reveal { opacity: 0; transform: translateY(14px); transition: opacity .6s ease, transform .6s cubic-bezier(.2,.7,.2,1); }
+  .reveal.in { opacity: 1; transform: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .reveal { opacity: 1 !important; transform: none !important; transition: none; }
+    * { scroll-behavior: auto !important; }
+    .draw-line { stroke-dashoffset: 0 !important; animation: none !important; }
+  }
+  html { scroll-behavior: smooth; }
+
+  /* responsive */
+  @media (max-width: 860px) {
+    .capture-grid { grid-template-columns: 1fr; }
+    .descend-grid { grid-template-columns: 1fr; }
+    .reps { grid-template-columns: 1fr; }
+    .gen-two { grid-template-columns: 1fr; }
+    .cosine-gate { padding: 8px 0; }
+    .run-row { grid-template-columns: 1fr auto; }
+    .run-row .run-note { grid-column: 1 / -1; }
+  }
+  @media (max-width: 620px) {
+    .wrap, .top-inner, .claims-inner { padding-left: 18px; padding-right: 18px; }
+    .status-strip { width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<div id="drop-overlay" aria-hidden="true">
+  <div class="drop-card">
+    <div class="ic">↓</div>
+    <div class="big">Drop <span class="mono">evidence_results.json</span></div>
+    <div class="small">Release to load a fresh run</div>
+  </div>
+</div>
+
+<header class="top">
+  <div class="top-inner">
+    <div class="brand">
+      <span class="glyph">E∕F</span>
+      <span class="name">CEO-Delta</span>
+      <span class="sub">Evidence Console</span>
+    </div>
+    <div class="status-strip">
+      <div id="data-badge"></div>
+      <div class="status-item">
+        <span class="k">Measured</span>
+        <span class="v" id="stat-generated">—</span>
+      </div>
+      <div class="status-item">
+        <span class="k">Elapsed</span>
+        <span class="v" id="stat-elapsed">—</span>
+      </div>
+      <button class="btn" id="load-btn" type="button">Load JSON…</button>
+      <button class="theme-toggle" id="theme-btn" type="button" title="Toggle theme" aria-label="Toggle light/dark theme">◐</button>
+      <input type="file" id="file-input" accept="application/json,.json" style="display:none" />
+    </div>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap hero-inner">
+    <div class="eyebrow">Self-improving planning + execution · deterministic descent</div>
+    <h1 class="title">The plan can only stand still or improve.</h1>
+    <p class="lede">
+      CEO-Delta derives the <b>structure a task requires</b> and measures how far the
+      realized plan deviates from it — in the <b>same coordinate system</b>. Repair
+      becomes literal coordinate descent, and a guarantee makes the delivered plan's
+      worst axis <b>monotone non-increasing</b>. Five claims, each measured, below.
+    </p>
+    <div class="basis-row">
+      <span class="basis-label">Basis</span>
+      <span class="axis-chip">partition</span>
+      <span class="axis-chip">flow</span>
+      <span class="axis-chip">role</span>
+      <span class="axis-chip">scale</span>
+      <span class="axis-chip q">groundedness</span>
+      <span class="axis-chip q">relevance</span>
+    </div>
+  </div>
+</section>
+
+<nav class="claims" aria-label="Claims">
+  <div class="claims-inner" id="claim-nav"></div>
+</nav>
+
+<main class="wrap" id="claims-root"></main>
+
+<footer>
+  <div class="wrap">
+    <span>CEO-Delta · research prototype — measured evidence, not marketing.</span>
+    <span class="mono" id="foot-meta">—</span>
+  </div>
+</footer>
+
+<script>
+/* ============================================================
+   Embedded SAMPLE data — renders on first open.
+   A dropped/loaded evidence_results.json (identical schema)
+   replaces it live via render().
+   ============================================================ */
+const SAMPLE_DATA = {
+  "_README": "ILLUSTRATIVE SAMPLE for UI development ONLY. Values are representative of real runs but NOT freshly measured.",
+  "generated_at": 1751846400.0,
+  "elapsed_s": 812.4,
+  "thresholds": { "partition": 0.70, "flow": 0.25, "role": 0.35, "scale": 0.34 },
+  "claims": [
+    {
+      "id": "1_capture", "name": "CAPTURE", "passed": true,
+      "headline": "3 distinct species across 3 task-types",
+      "payload": { "tasks": [
+        { "task": "Explain how a modern C compiler transforms C source into an executable.",
+          "species": "information_flow:sequential epistemic_stance:synthesis output_contract:artifact decomposability:coupled" },
+        { "task": "Compare Python, Rust, and Go across performance, safety, and concurrency.",
+          "species": "information_flow:convergent epistemic_stance:retrieval output_contract:comparison decomposability:independent" },
+        { "task": "Given three job offers, recommend the best one and justify the tradeoffs.",
+          "species": "information_flow:convergent epistemic_stance:synthesis output_contract:ranking decomposability:coupled" }
+      ] }
+    },
+    {
+      "id": "2_generalize", "name": "GENERALIZE", "passed": true,
+      "headline": "cosine=0.27 (unrelated) yet same class=true",
+      "payload": {
+        "task_a": "Explain the entire water cycle from evaporation to groundwater recharge.",
+        "task_b": "Describe how an HTTP request travels from a browser to a server and back.",
+        "text_cosine": 0.27,
+        "species_a": "information_flow:sequential epistemic_stance:synthesis output_contract:artifact decomposability:coupled",
+        "species_b": "information_flow:sequential epistemic_stance:synthesis output_contract:artifact decomposability:coupled",
+        "same_class": true
+      }
+    },
+    {
+      "id": "3_descend", "name": "DESCEND", "passed": true,
+      "headline": "monotone=true, 1 deterministic repair, 1 bad move rejected, worst-excess +0.283→+0.040",
+      "payload": {
+        "task": "Plan a trip from Bangalore to Bangkok under 60k using current fares.",
+        "verdict": "mixed", "iterations": 4,
+        "incumbent_trace": [
+          { "partition": 0.8401, "flow": 0.0, "role": 0.6333, "scale": 0.0 },
+          { "partition": 0.7401, "flow": 0.0, "role": 0.3095, "scale": 0.0 },
+          { "partition": 0.7401, "flow": 0.0, "role": 0.3095, "scale": 0.0 },
+          { "partition": 0.7401, "flow": 0.0, "role": 0.3095, "scale": 0.0 }
+        ],
+        "worst_excess_curve": [0.2833, 0.0401, 0.0401, 0.0401],
+        "raw_trace": [
+          { "partition": 0.8401, "flow": 0.0, "role": 0.6333, "scale": 0.0 },
+          { "partition": 0.7401, "flow": 0.0, "role": 0.3095, "scale": 0.0 },
+          { "partition": 0.8745, "flow": 0.0, "role": 0.2563, "scale": 0.0 },
+          { "partition": 0.0, "flow": 1.0, "role": 0.3063, "scale": 0.0 }
+        ],
+        "move_log": [
+          { "axis": "role", "move": "role.realign", "before": 0.633, "after": 0.309, "improved": true },
+          { "axis": "partition", "move": "partition.differentiate", "before": 0.74, "after": 0.875, "improved": false },
+          { "axis": "partition", "move": "partition.merge_redundant", "before": 0.74, "after": 0.0, "improved": true }
+        ],
+        "monotone": true, "improved": true,
+        "deterministic_repairs": [
+          { "axis": "role", "move": "role.realign", "before": 0.633, "after": 0.309, "improved": true }
+        ],
+        "llm_rejected": [
+          { "axis": "partition", "move": "partition.differentiate", "before": 0.74, "after": 0.875, "improved": false }
+        ]
+      }
+    },
+    {
+      "id": "4_reuse", "name": "REUSE", "passed": true,
+      "headline": "run1 cold, run2 warm=true iters=1",
+      "payload": {
+        "task": "Explain how a modern C compiler transforms C source into an executable.",
+        "run1": { "verdict": "good", "iters": 2, "warm": false },
+        "run2": { "verdict": "good", "iters": 1, "warm": true }
+      }
+    },
+    {
+      "id": "5_converge", "name": "CONVERGE", "passed": true,
+      "headline": "verdicts=[good,good,mixed] all in satisfying region=true",
+      "payload": {
+        "task": "Explain how a modern C compiler transforms C source into an executable.",
+        "reps": [
+          { "rep": 1, "verdict": "good",  "iters": 2, "ef": { "partition": 0.31, "flow": 0.0, "role": 0.20, "scale": 0.0 } },
+          { "rep": 2, "verdict": "good",  "iters": 3, "ef": { "partition": 0.42, "flow": 0.0, "role": 0.18, "scale": 0.0 } },
+          { "rep": 3, "verdict": "mixed", "iters": 2, "ef": { "partition": 0.66, "flow": 0.0, "role": 0.29, "scale": 0.0 } }
+        ]
+      }
+    }
+  ]
+};
+
+const DEFAULT_THRESHOLDS = { partition: 0.70, flow: 0.25, role: 0.35, scale: 0.34 };
+const AXES = ["partition", "flow", "role", "scale"];
+
+/* ---------- helpers ---------- */
+const $ = (sel, root=document) => root.querySelector(sel);
+const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+const esc = s => String(s == null ? "" : s);
+const num = (v, d=2) => (typeof v === "number" && isFinite(v)) ? v.toFixed(d) : "—";
+
+function fmtTimestamp(epoch) {
+  if (typeof epoch !== "number" || !isFinite(epoch)) return "—";
+  const ms = epoch > 1e12 ? epoch : epoch * 1000; // tolerate s or ms
+  try {
+    return new Date(ms).toLocaleString(undefined,
+      { year:"numeric", month:"short", day:"numeric", hour:"2-digit", minute:"2-digit" });
+  } catch { return "—"; }
+}
+function fmtElapsed(s) {
+  if (typeof s !== "number" || !isFinite(s)) return "—";
+  if (s < 90) return s.toFixed(1) + "s";
+  const m = Math.floor(s / 60), r = Math.round(s % 60);
+  return m + "m " + String(r).padStart(2,"0") + "s";
+}
+function getClaim(data, id) { return (data.claims || []).find(c => c && c.id === id) || null; }
+function parseSpecies(str) {
+  const out = {};
+  esc(str).split(/\s+/).forEach(tok => {
+    const i = tok.indexOf(":");
+    if (i > 0) out[tok.slice(0, i)] = tok.slice(i + 1);
+  });
+  return out;
+}
+function cellState(axis, value, thr) {
+  if (typeof value !== "number") return "zero";
+  if (Math.abs(value) < 1e-9) return "zero";
+  const t = thr[axis];
+  if (typeof t !== "number") return "zero";
+  return value > t ? "over" : "under";
+}
+function worstExcess(ef, thr) {
+  let w = -Infinity;
+  AXES.forEach(a => {
+    if (typeof ef[a] === "number" && typeof thr[a] === "number") w = Math.max(w, ef[a] - thr[a]);
+  });
+  return w === -Infinity ? 0 : w;
+}
+
+/* ---------- master render ---------- */
+function render(data) {
+  const thr = Object.assign({}, DEFAULT_THRESHOLDS, data.thresholds || {});
+  const isSample = !!data._README;
+
+  // status strip
+  const badge = $("#data-badge");
+  badge.innerHTML = "";
+  badge.appendChild(el("span", "badge " + (isSample ? "sample" : "live"), isSample ? "Sample data" : "Live run"));
+  $("#stat-generated").textContent = fmtTimestamp(data.generated_at);
+  $("#stat-elapsed").textContent = fmtElapsed(data.elapsed_s);
+  $("#foot-meta").textContent = (isSample ? "sample · " : "measured · ") + fmtTimestamp(data.generated_at);
+
+  // nav
+  const nav = $("#claim-nav");
+  nav.innerHTML = "";
+  (data.claims || []).forEach((c, i) => {
+    const a = el("a", "navpill");
+    a.href = "#" + esc(c.id);
+    a.innerHTML = `<span class="n">${String(i+1).padStart(2,"0")}</span>${esc(c.name)}<span class="dot ${c.passed?"":"fail"}"></span>`;
+    nav.appendChild(a);
+  });
+
+  // panels
+  const root = $("#claims-root");
+  root.innerHTML = "";
+  const renderers = {
+    "1_capture": renderCapture, "2_generalize": renderGeneralize,
+    "3_descend": renderDescend, "4_reuse": renderReuse, "5_converge": renderConverge
+  };
+  (data.claims || []).forEach((c, i) => {
+    const section = el("section", "panel reveal");
+    section.id = esc(c.id);
+    section.appendChild(panelHead(c, i));
+    try {
+      const fn = renderers[c.id];
+      const body = fn ? fn(c.payload || {}, thr, c) : renderFallback(c);
+      if (body) section.appendChild(body);
+    } catch (err) {
+      section.appendChild(el("p", "subcopy", "This claim could not be rendered from the loaded data."));
+      console.error("render error for", c.id, err);
+    }
+    root.appendChild(section);
+  });
+
+  wireReveal();
+  wireScrollspy();
+}
+
+function panelHead(c, i) {
+  const head = el("div", "panel-head");
+  const eye = el("div", "panel-eyebrow");
+  eye.appendChild(el("span", "claim-no", "Claim " + String(i+1).padStart(2,"0")));
+  eye.appendChild(el("span", "claim-name", esc(c.name)));
+  const vt = el("span", "verdict-tag " + (c.passed ? "pass" : "fail"));
+  vt.innerHTML = `<span class="ic">${c.passed ? "✓" : "✕"}</span>${c.passed ? "PASS" : "CHECK"}`;
+  eye.appendChild(vt);
+  head.appendChild(eye);
+  head.appendChild(el("h2", "headline", esc(c.headline)));
+  return head;
+}
+
+function renderFallback(c) {
+  const card = el("div", "card");
+  card.style.padding = "20px";
+  card.appendChild(el("pre", "mono", JSON.stringify(c.payload || {}, null, 2)));
+  return card;
+}
+
+/* ---------- 1 · CAPTURE ---------- */
+function renderCapture(p) {
+  const frag = document.createDocumentFragment();
+  frag.appendChild(el("p", "subcopy",
+    "Three raw sentences from three task-types, sharing no keywords. Each is parsed deterministically into a structural species along four axes — the axes, not the words, decide the shape."));
+  const grid = el("div", "capture-grid");
+  (p.tasks || []).forEach(t => {
+    const card = el("div", "card task-card");
+    card.appendChild(el("div", "qline", esc(t.task)));
+    const sp = parseSpecies(t.species);
+    const spWrap = el("div", "species");
+    [["information_flow","flow"],["epistemic_stance","stance"],["output_contract","contract"],["decomposability","decomp"]]
+      .forEach(([key,label]) => {
+        const row = el("div", "sattr");
+        row.appendChild(el("span", "lab", label));
+        row.appendChild(el("span", "val", esc(sp[key] || "—")));
+        spWrap.appendChild(row);
+      });
+    card.appendChild(spWrap);
+    grid.appendChild(card);
+  });
+  frag.appendChild(grid);
+  return frag;
+}
+
+/* ---------- 2 · GENERALIZE (climax) ---------- */
+function renderGeneralize(p) {
+  const frag = document.createDocumentFragment();
+  frag.appendChild(el("p", "subcopy",
+    "Two sentences with almost nothing in common on the surface. The error tensor is the dual of the fingerprint, so measurement happens in structure-space — phrasing washes out, and both collapse to one identical species."));
+
+  const card = el("div", "card gen-stage");
+  const two = el("div", "gen-two");
+
+  const sA = el("div", "gen-sent");
+  sA.innerHTML = `<span class="tag">Task A</span><span class="txt">${esc(p.task_a)}</span>`;
+  const sB = el("div", "gen-sent");
+  sB.innerHTML = `<span class="tag">Task B</span><span class="txt">${esc(p.task_b)}</span>`;
+
+  const gate = el("div", "cosine-gate");
+  const cos = typeof p.text_cosine === "number" ? p.text_cosine : null;
+  gate.appendChild(el("span", "cosine-lab", "text cosine"));
+  gate.appendChild(el("span", "cosine-num", cos != null ? cos.toFixed(2) : "—"));
+  const bar = el("div", "cosine-bar");
+  const fill = el("i"); fill.style.width = cos != null ? Math.max(2, Math.min(100, cos*100)) + "%" : "0%";
+  bar.appendChild(fill); gate.appendChild(bar);
+  gate.appendChild(el("span", "cosine-verdict", cos != null && cos < 0.5 ? "surface-unrelated" : "surface-similar"));
+
+  two.appendChild(sA); two.appendChild(gate); two.appendChild(sB);
+  card.appendChild(two);
+
+  const collapse = el("div", "collapse-row");
+  const arrow = el("div", "collapse-arrow");
+  arrow.innerHTML = `<span class="ln"></span>same fingerprint<span class="ln r"></span>`;
+  collapse.appendChild(arrow);
+
+  const uni = el("div", "unified-species");
+  uni.appendChild(el("span", "u-lab", (p.same_class ? "one species" : "distinct species") + " →"));
+  const sp = parseSpecies(p.species_a);
+  AXES.forEach(() => {}); // species keys below
+  [["information_flow","flow"],["epistemic_stance","stance"],["output_contract","contract"],["decomposability","decomp"]]
+    .forEach(([key,label]) => {
+      const chip = el("span", "uchip");
+      chip.innerHTML = `${label} <b>${esc(sp[key] || "—")}</b>`;
+      uni.appendChild(chip);
+    });
+  collapse.appendChild(uni);
+  card.appendChild(collapse);
+  frag.appendChild(card);
+  return frag;
+}
+
+/* ---------- 3 · DESCEND (proof) ---------- */
+function renderDescend(p, thr) {
+  const frag = document.createDocumentFragment();
+  frag.appendChild(el("p", "subcopy",
+    "Coordinate descent on the worst over-threshold axis. The delivered plan's worst-axis excess is monotone non-increasing — a kept deterministic repair drops it; a worse LLM re-roll is measured and rejected. The line only ever descends."));
+
+  const grid = el("div", "descend-grid");
+
+  // left: chart
+  const chartCard = el("div", "card chart-card");
+  chartCard.appendChild(el("div", "chart-title", "Worst-axis excess per incumbent"));
+  chartCard.appendChild(el("div", "chart-sub", "y = 0 is the satisfying-region boundary · lower is better"));
+  const holder = el("div", "chart-holder");
+  holder.innerHTML = descentSVG(Array.isArray(p.worst_excess_curve) ? p.worst_excess_curve : []);
+  chartCard.appendChild(holder);
+  grid.appendChild(chartCard);
+
+  // right: tiles + move log
+  const right = el("div");
+  const tiles = el("div", "tiles");
+  tiles.appendChild(statTile("Monotone", p.monotone ? "yes" : "no", p.monotone ? "good" : "bad"));
+  tiles.appendChild(statTile("Verdict", esc(p.verdict || "—"), verdictClass(p.verdict)));
+  tiles.appendChild(statTile("Iterations", p.iterations != null ? String(p.iterations) : "—", ""));
+  const nKept = (p.deterministic_repairs || []).length;
+  const nRej = (p.llm_rejected || []).length;
+  tiles.appendChild(statTile("Kept / rejected", nKept + " / " + nRej, ""));
+  right.appendChild(tiles);
+
+  const log = el("div", "movelog");
+  (p.move_log || []).forEach(m => {
+    const kept = m.improved === true;
+    const row = el("div", "move " + (kept ? "kept" : "rejected"));
+    const ic = el("div", "mic"); ic.textContent = kept ? "✓" : "✕";
+    const mid = el("div");
+    mid.innerHTML = `<div class="mid">${esc(m.move)}</div><div class="maxis">${esc(m.axis)} axis</div>`;
+    const delta = el("div", "mdelta");
+    delta.innerHTML = `${num(m.before)} <span>→</span> <span class="to">${num(m.after)}</span>`;
+    row.appendChild(ic); row.appendChild(mid); row.appendChild(delta);
+    log.appendChild(row);
+  });
+  right.appendChild(log);
+  grid.appendChild(right);
+  frag.appendChild(grid);
+
+  // incumbent tensor heat-strip
+  const inc = Array.isArray(p.incumbent_trace) ? p.incumbent_trace : [];
+  if (inc.length) {
+    const wrap = el("div", "tensor-wrap");
+    const cap = el("div", "chart-sub");
+    cap.style.margin = "0 0 8px"; cap.textContent = "Incumbent tensor per iteration — green under threshold, red over";
+    wrap.appendChild(cap);
+    const table = el("table", "tensor");
+    const thead = el("tr");
+    thead.appendChild(el("th", "rowlab", "iter"));
+    AXES.forEach(a => thead.appendChild(el("th", null, a)));
+    table.appendChild(thead);
+    inc.forEach((ef, i) => {
+      const tr = el("tr");
+      tr.appendChild(el("td", "rowlab", "#" + i));
+      AXES.forEach(a => {
+        const v = ef[a];
+        const td = el("td", "cell " + cellState(a, v, thr), typeof v === "number" ? v.toFixed(2) : "—");
+        tr.appendChild(td);
+      });
+      table.appendChild(tr);
+    });
+    wrap.appendChild(table);
+    frag.appendChild(wrap);
+  }
+  return frag;
+}
+
+function statTile(k, v, cls) {
+  const t = el("div", "tile");
+  t.appendChild(el("div", "k", k));
+  t.appendChild(el("div", "v " + (cls || ""), v));
+  return t;
+}
+function verdictClass(v) { return v === "good" ? "good" : v === "mixed" ? "warn" : v === "poor" ? "bad" : ""; }
+
+function descentSVG(curve) {
+  const W = 460, H = 250, m = { t: 18, r: 18, b: 34, l: 44 };
+  const iw = W - m.l - m.r, ih = H - m.t - m.b;
+  if (!curve.length) return `<svg class="descent" viewBox="0 0 ${W} ${H}" role="img" aria-label="no descent data"></svg>`;
+
+  const vals = curve.filter(v => typeof v === "number" && isFinite(v));
+  const dataMax = Math.max(...vals, 0.02);
+  const dataMin = Math.min(...vals, 0);
+  const yMax = dataMax * 1.18;
+  const yMin = Math.min(dataMin - 0.02, -0.05);
+  const n = curve.length;
+  const x = i => m.l + (n === 1 ? iw/2 : (i / (n - 1)) * iw);
+  const y = v => m.t + (1 - (v - yMin) / (yMax - yMin)) * ih;
+
+  const y0 = y(0);
+  const cssId = "g" + Math.random().toString(36).slice(2, 8);
+
+  // gridlines (excess ticks)
+  let grid = "";
+  const ticks = niceTicks(yMin, yMax, 4);
+  ticks.forEach(tk => {
+    const yy = y(tk).toFixed(1);
+    grid += `<line x1="${m.l}" x2="${W-m.r}" y1="${yy}" y2="${yy}" stroke="var(--line)" stroke-width="1"/>`;
+    grid += `<text x="${m.l-8}" y="${(y(tk)+3.5).toFixed(1)}" text-anchor="end" font-size="10" font-family="var(--font-mono)" fill="var(--ink-3)">${(tk>0?"+":"")+tk.toFixed(2)}</text>`;
+  });
+
+  // satisfying region (excess <= 0) shaded down to bottom
+  const regionTop = Math.min(y0, m.t + ih);
+  const region = y0 < m.t + ih
+    ? `<rect x="${m.l}" y="${regionTop.toFixed(1)}" width="${iw}" height="${(m.t+ih-regionTop).toFixed(1)}" fill="var(--region)"/>
+       <text x="${W-m.r-6}" y="${Math.min(m.t+ih-8, y0+16).toFixed(1)}" text-anchor="end" font-size="10" font-family="var(--font-mono)" fill="var(--good)">satisfying region</text>`
+    : "";
+
+  // boundary line at 0
+  const boundary = `<line x1="${m.l}" x2="${W-m.r}" y1="${y0.toFixed(1)}" y2="${y0.toFixed(1)}" stroke="var(--good)" stroke-width="1.5" stroke-dasharray="5 4" opacity="0.8"/>`;
+
+  // area + line
+  const pts = curve.map((v, i) => [x(i), y(typeof v==="number"?v:0)]);
+  const linePath = pts.map((pt, i) => (i===0?"M":"L") + pt[0].toFixed(1) + " " + pt[1].toFixed(1)).join(" ");
+  const areaPath = linePath + ` L ${pts[pts.length-1][0].toFixed(1)} ${(m.t+ih).toFixed(1)} L ${pts[0][0].toFixed(1)} ${(m.t+ih).toFixed(1)} Z`;
+
+  const len = pathLen(pts);
+  const circles = pts.map((pt, i) => {
+    const last = i === pts.length - 1;
+    const r = last ? 5.5 : 4;
+    const ring = last ? `<circle cx="${pt[0].toFixed(1)}" cy="${pt[1].toFixed(1)}" r="9" fill="none" stroke="var(--accent)" stroke-width="1.5" opacity="0.35"/>` : "";
+    const v = curve[i];
+    // keep endpoint value labels inside the plot: anchor start on the far left, end on the far right
+    const anchor = pt[0] < m.l + iw*0.12 ? "start" : pt[0] > m.l + iw*0.88 ? "end" : "middle";
+    const label = (i===0 || last) && typeof v === "number"
+      ? `<text x="${pt[0].toFixed(1)}" y="${(pt[1]-12).toFixed(1)}" text-anchor="${anchor}" font-size="11" font-weight="600" font-family="var(--font-mono)" fill="var(--ink)">${(v>0?"+":"")+v.toFixed(3)}</text>`
+      : "";
+    return ring + `<circle cx="${pt[0].toFixed(1)}" cy="${pt[1].toFixed(1)}" r="${r}" fill="var(--accent)" stroke="var(--panel)" stroke-width="1.5"/>` + label;
+  }).join("");
+
+  // x labels
+  let xlab = "";
+  curve.forEach((v, i) => {
+    xlab += `<text x="${x(i).toFixed(1)}" y="${(m.t+ih+18).toFixed(1)}" text-anchor="middle" font-size="10" font-family="var(--font-mono)" fill="var(--ink-3)">#${i}</text>`;
+  });
+  xlab += `<text x="${(m.l+iw/2).toFixed(1)}" y="${(H-2).toFixed(1)}" text-anchor="middle" font-size="10" font-family="var(--font-mono)" fill="var(--ink-3)">incumbent iteration</text>`;
+
+  return `<svg class="descent" viewBox="0 0 ${W} ${H}" role="img" aria-label="worst-axis excess descending and staying at or below its start">
+    <defs>
+      <linearGradient id="${cssId}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.22"/>
+        <stop offset="100%" stop-color="var(--accent)" stop-opacity="0.02"/>
+      </linearGradient>
+    </defs>
+    ${grid}${region}${boundary}
+    <path d="${areaPath}" fill="url(#${cssId})"/>
+    <path class="draw-line" d="${linePath}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+      style="stroke-dasharray:${len.toFixed(1)};stroke-dashoffset:${len.toFixed(1)};animation:draw 1.1s .2s ease forwards"/>
+    ${circles}${xlab}
+  </svg>
+  <style>@keyframes draw{to{stroke-dashoffset:0}}</style>`;
+}
+function pathLen(pts) { let l = 0; for (let i=1;i<pts.length;i++){ const dx=pts[i][0]-pts[i-1][0], dy=pts[i][1]-pts[i-1][1]; l += Math.hypot(dx,dy);} return l || 1; }
+function niceTicks(min, max, count) {
+  const span = max - min || 1;
+  const step = niceStep(span / count);
+  const ticks = [];
+  const start = Math.ceil(min / step) * step;
+  for (let v = start; v <= max + 1e-9; v += step) ticks.push(Math.round(v/step)*step);
+  return ticks;
+}
+function niceStep(raw) {
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const norm = raw / mag;
+  const nice = norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10;
+  return nice * mag;
+}
+
+/* ---------- 4 · REUSE ---------- */
+function renderReuse(p) {
+  const frag = document.createDocumentFragment();
+  frag.appendChild(el("p", "subcopy",
+    "What descent learns is keyed to the task's shape, not its words. The second time CEO-Delta sees this species it warm-starts from the cached best plan and skips cold planning — converging in a single iteration."));
+  const card = el("div", "card");
+  const rows = el("div", "reuse-rows");
+  if (p.task) {
+    const t = el("div", "run-note"); t.style.marginBottom = "2px";
+    t.innerHTML = `Task · <span class="mono">${esc(p.task)}</span>`;
+    rows.appendChild(t);
+  }
+  [["run1","Run 1", p.run1],["run2","Run 2", p.run2]].forEach(([key,label,r]) => {
+    if (!r) return;
+    const warm = !!r.warm;
+    const row = el("div", "run-row" + (warm ? " warm" : ""));
+    row.appendChild(el("div", "run-label", label));
+    const note = el("div");
+    note.appendChild(warm
+      ? Object.assign(el("span","warm-badge"), { textContent: "⚡ warm-started" })
+      : Object.assign(el("span","cold-badge"), { textContent: "cold plan" }));
+    row.appendChild(note);
+    const mv = el("div", "run-metric");
+    mv.innerHTML = `<div class="k">verdict</div><div class="v ${verdictPill(r.verdict)}">${esc(r.verdict||"—")}</div>`;
+    row.appendChild(mv);
+    const mi = el("div", "run-metric");
+    mi.innerHTML = `<div class="k">iterations</div><div class="v">${r.iters != null ? r.iters : "—"}</div>`;
+    row.appendChild(mi);
+    rows.appendChild(row);
+  });
+  card.appendChild(rows);
+  frag.appendChild(card);
+  return frag;
+}
+function verdictPill(v) { return v === "good" ? "good" : v === "mixed" ? "mixed" : v === "poor" ? "poor" : ""; }
+
+/* ---------- 5 · CONVERGE ---------- */
+function renderConverge(p, thr) {
+  const frag = document.createDocumentFragment();
+  frag.appendChild(el("p", "subcopy",
+    "Different random seeds, same task. Convergence is a region, not a point — each run lands inside the satisfying region (worst-axis excess ≤ 0), so the outcome is stable across restarts."));
+  const card = el("div", "card converge-card");
+
+  const reps = Array.isArray(p.reps) ? p.reps : [];
+  const points = reps.map(r => ({ rep: r.rep, verdict: r.verdict, we: worstExcess(r.ef || {}, thr) }));
+  const plot = el("div", "region-plot");
+  plot.innerHTML = convergeSVG(points);
+  card.appendChild(plot);
+
+  const legend = el("div", "converge-legend");
+  legend.innerHTML = `
+    <span class="lg"><span class="sw" style="background:var(--region)"></span>satisfying region (excess ≤ 0)</span>
+    <span class="lg"><span class="sw" style="background:var(--accent)"></span>run outcome</span>`;
+  card.appendChild(legend);
+
+  const grid = el("div", "reps");
+  reps.forEach(r => {
+    const rc = el("div", "rep");
+    const rh = el("div", "rhead");
+    rh.appendChild(el("span", "seed", "seed " + esc(r.rep)));
+    rh.appendChild(Object.assign(el("span", "vpill " + verdictPill(r.verdict)), { textContent: esc(r.verdict||"—") }));
+    rc.appendChild(rh);
+    const ax = el("div", "mini-ax");
+    AXES.forEach(a => {
+      const v = (r.ef || {})[a];
+      const t = thr[a];
+      const over = typeof v === "number" && typeof t === "number" && v > t;
+      const row = el("div", "mrow");
+      row.appendChild(el("span", "ml", a));
+      const track = el("div", "track");
+      const bar = el("i");
+      const pct = typeof v === "number" ? Math.max(2, Math.min(100, v*100)) : 0;
+      bar.style.width = pct + "%";
+      bar.style.background = over ? "var(--bad)" : "var(--good)";
+      track.appendChild(bar);
+      row.appendChild(track);
+      row.appendChild(Object.assign(el("span","mv"), { textContent: typeof v==="number"? v.toFixed(2):"—" }));
+      ax.appendChild(row);
+    });
+    rc.appendChild(ax);
+    grid.appendChild(rc);
+  });
+  card.appendChild(grid);
+  frag.appendChild(card);
+  return frag;
+}
+
+function convergeSVG(points) {
+  const W = 640, H = 168, m = { t: 22, r: 24, b: 48, l: 24 };
+  const iw = W - m.l - m.r, ih = H - m.t - m.b;
+  const wes = points.map(p => p.we).filter(v => isFinite(v));
+  const xMax = Math.max(0.05, ...wes.map(v => v), 0.02);
+  const xMin = Math.min(-0.5, ...wes.map(v => v));
+  const x = v => m.l + ((v - xMin) / (xMax - xMin)) * iw;
+  const x0 = x(0);
+  const cy = m.t + ih / 2;
+
+  // region: excess <= 0 (left of x0)
+  const region = `<rect x="${m.l}" y="${m.t}" width="${(x0-m.l).toFixed(1)}" height="${ih}" fill="var(--region)"/>`;
+  const boundary = `<line x1="${x0.toFixed(1)}" x2="${x0.toFixed(1)}" y1="${m.t}" y2="${m.t+ih}" stroke="var(--good)" stroke-width="1.5" stroke-dasharray="5 4" opacity="0.85"/>
+    <text x="${x0.toFixed(1)}" y="${(m.t-8).toFixed(1)}" text-anchor="middle" font-size="10" font-family="var(--font-mono)" fill="var(--good)">boundary · excess = 0</text>`;
+  const axis = `<line x1="${m.l}" x2="${W-m.r}" y1="${cy.toFixed(1)}" y2="${cy.toFixed(1)}" stroke="var(--line-2)" stroke-width="1"/>`;
+
+  // ticks
+  let ticks = "";
+  niceTicks(xMin, xMax, 5).forEach(t => {
+    const xx = x(t);
+    ticks += `<text x="${xx.toFixed(1)}" y="${(m.t+ih+18).toFixed(1)}" text-anchor="middle" font-size="9.5" font-family="var(--font-mono)" fill="var(--ink-3)">${(t>0?"+":"")+t.toFixed(2)}</text>`;
+  });
+
+  // dots (jitter vertically to avoid overlap)
+  const dots = points.map((p, i) => {
+    if (!isFinite(p.we)) return "";
+    const jy = cy + (i - (points.length-1)/2) * 20;
+    const px = x(p.we);
+    // flip label to the left of the dot when it sits near the right edge, so it never clips
+    const near = px > W * 0.62;
+    const tx = near ? px - 11 : px + 11;
+    const anchor = near ? "end" : "start";
+    return `<line x1="${px.toFixed(1)}" x2="${px.toFixed(1)}" y1="${cy.toFixed(1)}" y2="${jy.toFixed(1)}" stroke="var(--line-2)" stroke-width="1"/>
+      <circle cx="${px.toFixed(1)}" cy="${jy.toFixed(1)}" r="6" fill="var(--accent)" stroke="var(--panel)" stroke-width="2"/>
+      <text x="${tx.toFixed(1)}" y="${(jy+3.5).toFixed(1)}" text-anchor="${anchor}" font-size="10" font-family="var(--font-mono)" fill="var(--ink-2)">seed ${esc(p.rep)} · ${(p.we>0?"+":"")+p.we.toFixed(2)}</text>`;
+  }).join("");
+
+  return `<svg class="region" viewBox="0 0 ${W} ${H}" role="img" aria-label="all runs land at or inside the satisfying region">
+    ${region}${axis}${boundary}${ticks}${dots}
+    <text x="${(m.l+iw/2).toFixed(1)}" y="${(m.t+ih+38).toFixed(1)}" text-anchor="middle" font-size="9.5" font-family="var(--font-mono)" fill="var(--ink-3)">worst-axis excess →</text>
+  </svg>`;
+}
+
+/* ---------- interactions ---------- */
+function wireReveal() {
+  const els = document.querySelectorAll(".reveal");
+  if (!("IntersectionObserver" in window)) { els.forEach(e => e.classList.add("in")); return; }
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } });
+  }, { threshold: 0.12 });
+  els.forEach(e => io.observe(e));
+}
+function wireScrollspy() {
+  const links = Array.from(document.querySelectorAll(".navpill"));
+  const map = new Map(links.map(l => [l.getAttribute("href").slice(1), l]));
+  if (!("IntersectionObserver" in window)) return;
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        links.forEach(l => l.classList.remove("active"));
+        const l = map.get(e.target.id);
+        if (l) l.classList.add("active");
+      }
+    });
+  }, { rootMargin: "-45% 0px -50% 0px", threshold: 0 });
+  document.querySelectorAll(".panel").forEach(p => io.observe(p));
+}
+
+/* ---------- data loading ---------- */
+function loadFromFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      if (!data || !Array.isArray(data.claims)) throw new Error("missing claims[]");
+      render(data);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (err) {
+      alert("Could not read that file as evidence JSON.\n\n" + err.message +
+            "\n\nExpected the schema written by scripts/evidence.py.");
+    }
+  };
+  reader.onerror = () => alert("Could not read the file.");
+  reader.readAsText(file);
+}
+
+/* drag & drop */
+let dragDepth = 0;
+const overlay = $("#drop-overlay");
+window.addEventListener("dragenter", e => { e.preventDefault(); dragDepth++; overlay.classList.add("on"); });
+window.addEventListener("dragover", e => { e.preventDefault(); });
+window.addEventListener("dragleave", e => { e.preventDefault(); if (--dragDepth <= 0) { dragDepth = 0; overlay.classList.remove("on"); } });
+window.addEventListener("drop", e => {
+  e.preventDefault(); dragDepth = 0; overlay.classList.remove("on");
+  const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+  loadFromFile(f);
+});
+$("#file-input").addEventListener("change", e => loadFromFile(e.target.files[0]));
+$("#load-btn").addEventListener("click", () => $("#file-input").click());
+
+/* theme toggle */
+function applyTheme(t) {
+  if (t) document.documentElement.setAttribute("data-theme", t);
+  try { localStorage.setItem("ceodelta-theme", t); } catch {}
+}
+(function initTheme(){
+  let saved = null; try { saved = localStorage.getItem("ceodelta-theme"); } catch {}
+  if (saved) document.documentElement.setAttribute("data-theme", saved);
+})();
+$("#theme-btn").addEventListener("click", () => {
+  const cur = document.documentElement.getAttribute("data-theme");
+  const dark = cur ? cur === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+  applyTheme(dark ? "light" : "dark");
+});
+
+/* boot */
+render(SAMPLE_DATA);
+</script>
+</body>
+</html>
