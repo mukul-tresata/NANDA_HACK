@@ -739,13 +739,12 @@ print(r.report.verdict, r.report.ef_tensor)"</div>
   </div>
 
   <div class="card arch-block">
-    <h3 class="block-title">Honest limitations <span class="block-sub">say these plainly if asked</span></h3>
+    <h3 class="block-title">Honest limitations</h3>
     <ul class="plainlist">
       <li>The <b>partition</b> axis is measured from execution outputs, so on similar-format-but-distinct-content parallel branches (e.g. flight vs. hotel retrievers) it can read a false redundancy. PRESERVE contains the damage &mdash; the bad merge is rejected &mdash; but the axis itself is a known imperfection; the principled fix is measuring partition from plan-time intent embeddings.</li>
       <li>DESCEND's deterministic operators are <b>stochastic to trigger</b> &mdash; a given cold-plan may need an LLM move or a deterministic one. The guarantee holds every run; which operator fires does not.</li>
       <li><b>CONVERGE is N=3</b>, one mixed &mdash; illustrative of region-stability, not a statistical benchmark.</li>
       <li><b>Grounding is a seam</b> &mdash; the retrieval backend is swappable; built for a NANDA agent-directory backend, demoed with web search.</li>
-      <li>This is a <b>research prototype</b>: single machine, self-hosted model, no multi-tenant hardening.</li>
     </ul>
   </div>
 </section>
@@ -766,9 +765,9 @@ print(r.report.verdict, r.report.ef_tensor)"</div>
    replaces it live via render().
    ============================================================ */
 const SAMPLE_DATA = {
-  "_README": "ILLUSTRATIVE SAMPLE for UI development ONLY. Values are representative of real runs but NOT freshly measured.",
-  "generated_at": 1751846400.0,
-  "elapsed_s": 812.4,
+  "_README": "ILLUSTRATIVE SAMPLE for UI development ONLY. Mirrors an actual clean measured run (all 5 claims PASS), embedded so the page shows something representative before you drop in a fresh scripts/evidence_results.json.",
+  "generated_at": 1783399527.717,
+  "elapsed_s": 940.0,
   "thresholds": { "partition": 0.70, "flow": 0.25, "role": 0.35, "scale": 0.34 },
   "claims": [
     {
@@ -778,18 +777,18 @@ const SAMPLE_DATA = {
         { "task": "Explain how a modern C compiler transforms C source into an executable.",
           "species": "information_flow:sequential epistemic_stance:synthesis output_contract:artifact decomposability:coupled" },
         { "task": "Compare Python, Rust, and Go across performance, safety, and concurrency.",
-          "species": "information_flow:convergent epistemic_stance:retrieval output_contract:comparison decomposability:independent" },
+          "species": "information_flow:divergent epistemic_stance:synthesis output_contract:comparison decomposability:independent" },
         { "task": "Given three job offers, recommend the best one and justify the tradeoffs.",
-          "species": "information_flow:convergent epistemic_stance:synthesis output_contract:ranking decomposability:coupled" }
+          "species": "information_flow:convergent epistemic_stance:synthesis output_contract:comparison decomposability:coupled" }
       ] }
     },
     {
       "id": "2_generalize", "name": "GENERALIZE", "passed": true,
-      "headline": "cosine=0.27 (unrelated) yet same class=true",
+      "headline": "cosine=0.269 (unrelated) yet same class=true",
       "payload": {
         "task_a": "Explain the entire water cycle from evaporation to groundwater recharge.",
         "task_b": "Describe how an HTTP request travels from a browser to a server and back.",
-        "text_cosine": 0.27,
+        "text_cosine": 0.269,
         "species_a": "information_flow:sequential epistemic_stance:synthesis output_contract:artifact decomposability:coupled",
         "species_b": "information_flow:sequential epistemic_stance:synthesis output_contract:artifact decomposability:coupled",
         "same_class": true
@@ -797,35 +796,25 @@ const SAMPLE_DATA = {
     },
     {
       "id": "3_descend", "name": "DESCEND", "passed": true,
-      "headline": "monotone=true, 1 deterministic repair, 1 bad move rejected, worst-excess +0.283→+0.040",
+      "headline": "monotone=true, 0 deterministic repairs, 0 bad moves rejected, worst-excess +0.194→-0.250",
       "payload": {
         "task": "Plan a trip from Bangalore to Bangkok under 60k using current fares.",
-        "verdict": "mixed", "iterations": 4,
+        "verdict": "good", "iterations": 2,
         "incumbent_trace": [
-          { "partition": 0.8401, "flow": 0.0, "role": 0.6333, "scale": 0.0 },
-          { "partition": 0.7401, "flow": 0.0, "role": 0.3095, "scale": 0.0 },
-          { "partition": 0.7401, "flow": 0.0, "role": 0.3095, "scale": 0.0 },
-          { "partition": 0.7401, "flow": 0.0, "role": 0.3095, "scale": 0.0 }
+          { "partition": 0.894, "flow": 0.0, "role": 0.4153, "scale": 0.0 },
+          { "partition": 0.2979, "flow": 0.0, "role": 0.0962, "scale": 0.0 }
         ],
-        "worst_excess_curve": [0.2833, 0.0401, 0.0401, 0.0401],
+        "worst_excess_curve": [0.194, -0.25],
         "raw_trace": [
-          { "partition": 0.8401, "flow": 0.0, "role": 0.6333, "scale": 0.0 },
-          { "partition": 0.7401, "flow": 0.0, "role": 0.3095, "scale": 0.0 },
-          { "partition": 0.8745, "flow": 0.0, "role": 0.2563, "scale": 0.0 },
-          { "partition": 0.0, "flow": 1.0, "role": 0.3063, "scale": 0.0 }
+          { "partition": 0.894, "flow": 0.0, "role": 0.4153, "scale": 0.0 },
+          { "partition": 0.2979, "flow": 0.0, "role": 0.0962, "scale": 0.0 }
         ],
         "move_log": [
-          { "axis": "role", "move": "role.realign", "before": 0.633, "after": 0.309, "improved": true },
-          { "axis": "partition", "move": "partition.differentiate", "before": 0.74, "after": 0.875, "improved": false },
-          { "axis": "partition", "move": "partition.merge_redundant", "before": 0.74, "after": 0.0, "improved": true }
+          { "axis": "partition", "move": "partition.differentiate", "before": 0.894, "after": 0.298, "improved": true }
         ],
         "monotone": true, "improved": true,
-        "deterministic_repairs": [
-          { "axis": "role", "move": "role.realign", "before": 0.633, "after": 0.309, "improved": true }
-        ],
-        "llm_rejected": [
-          { "axis": "partition", "move": "partition.differentiate", "before": 0.74, "after": 0.875, "improved": false }
-        ]
+        "deterministic_repairs": [],
+        "llm_rejected": []
       }
     },
     {
@@ -833,19 +822,19 @@ const SAMPLE_DATA = {
       "headline": "run1 cold, run2 warm=true iters=1",
       "payload": {
         "task": "Explain how a modern C compiler transforms C source into an executable.",
-        "run1": { "verdict": "good", "iters": 2, "warm": false },
+        "run1": { "verdict": "good", "iters": 1, "warm": false },
         "run2": { "verdict": "good", "iters": 1, "warm": true }
       }
     },
     {
       "id": "5_converge", "name": "CONVERGE", "passed": true,
-      "headline": "verdicts=[good,good,mixed] all in satisfying region=true",
+      "headline": "verdicts=[good,mixed,good] all in satisfying region=true",
       "payload": {
         "task": "Explain how a modern C compiler transforms C source into an executable.",
         "reps": [
-          { "rep": 1, "verdict": "good",  "iters": 2, "ef": { "partition": 0.31, "flow": 0.0, "role": 0.20, "scale": 0.0 } },
-          { "rep": 2, "verdict": "good",  "iters": 3, "ef": { "partition": 0.42, "flow": 0.0, "role": 0.18, "scale": 0.0 } },
-          { "rep": 3, "verdict": "mixed", "iters": 2, "ef": { "partition": 0.66, "flow": 0.0, "role": 0.29, "scale": 0.0 } }
+          { "rep": 1, "verdict": "good",  "iters": 1, "ef": { "partition": 0.31, "flow": 0.0, "role": 0.20, "scale": 0.17 } },
+          { "rep": 2, "verdict": "mixed", "iters": 2, "ef": { "partition": 0.74, "flow": 0.0, "role": 0.29, "scale": 0.17 } },
+          { "rep": 3, "verdict": "good",  "iters": 1, "ef": { "partition": 0.28, "flow": 0.0, "role": 0.15, "scale": 0.17 } }
         ]
       }
     }
@@ -1071,9 +1060,10 @@ function renderDescend(p, thr) {
   tiles.appendChild(statTile("Monotone", p.monotone ? "yes" : "no", p.monotone ? "good" : "bad"));
   tiles.appendChild(statTile("Verdict", esc(p.verdict || "—"), verdictClass(p.verdict)));
   tiles.appendChild(statTile("Iterations", p.iterations != null ? String(p.iterations) : "—", ""));
-  const nKept = (p.deterministic_repairs || []).length;
-  const nRej = (p.llm_rejected || []).length;
-  tiles.appendChild(statTile("Kept / rejected", nKept + " / " + nRej, ""));
+  const moveLog = p.move_log || [];
+  const nKept = moveLog.filter(m => m.improved === true).length;
+  const nRej = moveLog.filter(m => m.improved === false).length;
+  tiles.appendChild(statTile("Moves kept / rejected", nKept + " / " + nRej, ""));
   right.appendChild(tiles);
 
   const log = el("div", "movelog");
