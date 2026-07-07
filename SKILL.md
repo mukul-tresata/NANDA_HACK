@@ -22,12 +22,15 @@ you can decide how much to trust the result.
 ## Web address
 
 ```
-BASE_URL = https://YOUR-PUBLIC-URL
+BASE_URL = https://speaks-quotations-arbitration-greetings.trycloudflare.com
 ```
 
-> Replace `https://YOUR-PUBLIC-URL` with the live base URL (printed when the
-> service is exposed — see `service/README.md`). All endpoints below are
-> relative to it.
+> This is a Cloudflare **quick tunnel** — free, no account needed, but the URL
+> is only valid while `cloudflared tunnel --url http://localhost:6001` is
+> running on the model host, and a **new run mints a new random URL** (this
+> one does not survive a restart). Before final submission/registration,
+> re-verify this URL is still live, or replace it with the fresh one from
+> `service/README.md` if the tunnel has been restarted since.
 
 ## Endpoints
 
