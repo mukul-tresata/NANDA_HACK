@@ -286,6 +286,21 @@
   main { padding: 8px 0 90px; }
   .panel { padding: 54px 0 10px; scroll-margin-top: 112px; }
   .panel-head { margin-bottom: 22px; }
+
+  /* ---------- left spine: threads every movement into one narrative ---------- */
+  .panel, .pitch-card { position: relative; }
+  .panel::before, .pitch-card::before {
+    content: ""; position: absolute; left: -26px; top: 0; bottom: 0; width: 2px;
+    background: var(--line); border-radius: 2px;
+  }
+  .pitch-card::before { bottom: -20px; }           /* bridge the flex gap between problem cards */
+  .panel::after, .pitch-card::after {
+    content: ""; position: absolute; left: -31px; width: 12px; height: 12px; border-radius: 50%;
+    background: var(--ground); border: 2px solid var(--accent); box-shadow: 0 0 0 4px var(--accent-wash);
+  }
+  .panel::after { top: 58px; }
+  .pitch-card::after { top: 34px; }
+  @media (max-width: 980px) { .panel::before, .panel::after, .pitch-card::before, .pitch-card::after { display: none; } }
   .panel-eyebrow { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
   .claim-no { font-family: var(--font-mono); font-size: 12px; color: var(--ink-3); letter-spacing: .05em; }
   .claim-name { font-family: var(--font-mono); font-size: 12px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--accent); }
@@ -571,6 +586,8 @@
   .illo-edge.accent { stroke: var(--accent); stroke-width: 1.8; }
   .illo-edge.tangle { stroke: var(--bad); stroke-width: 1.4; opacity: .7; fill: none; }
   .illo-label { font-family: var(--font-mono); font-size: 10px; fill: var(--ink-3); letter-spacing: .04em; text-transform: uppercase; }
+  .illo-brace { fill: none; stroke: var(--line); stroke-width: 1.4; }
+  .illo-cap { font-family: var(--font-mono); font-size: 9px; fill: var(--ink-3); letter-spacing: .05em; text-transform: uppercase; }
   .illo-arrow { stroke: var(--ink-3); stroke-width: 1.6; fill: none; }
   @media (max-width: 760px) { .pitch-split { grid-template-columns: 1fr; } .pitch-split .illo { max-width: 320px; margin: 4px auto 0; } }
 
@@ -715,36 +732,38 @@
             </div>
           </details>
         </div>
-        <!-- illustration: a task fanned out to specialist agents, merged back -->
-        <svg class="illo" viewBox="0 0 260 210" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <!-- illustration: layered pipeline — task -> parallel specialist lanes -> merged answer -->
+        <svg class="illo" viewBox="0 0 340 224" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
           <defs>
             <marker id="ia" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
               <path d="M0,0 L10,5 L0,10 z" fill="var(--line-2)"/>
             </marker>
           </defs>
-          <!-- edges: task -> 3 agents -> output -->
-          <path class="illo-edge" marker-end="url(#ia)" d="M130,44 C90,58 66,64 56,78"/>
-          <path class="illo-edge" marker-end="url(#ia)" d="M130,44 L130,78"/>
-          <path class="illo-edge" marker-end="url(#ia)" d="M130,44 C170,58 194,64 204,78"/>
-          <path class="illo-edge" marker-end="url(#ia)" d="M56,126 C66,142 90,150 122,162"/>
-          <path class="illo-edge" marker-end="url(#ia)" d="M130,126 L130,160"/>
-          <path class="illo-edge" marker-end="url(#ia)" d="M204,126 C194,142 170,150 138,162"/>
+          <!-- task -> each lane -->
+          <path class="illo-edge" marker-end="url(#ia)" d="M66,112 C86,112 84,50 100,50"/>
+          <path class="illo-edge" marker-end="url(#ia)" d="M66,112 L100,112"/>
+          <path class="illo-edge" marker-end="url(#ia)" d="M66,112 C86,112 84,174 100,174"/>
+          <!-- each lane -> answer (merge) -->
+          <path class="illo-edge" marker-end="url(#ia)" d="M250,50 C266,50 264,112 274,112"/>
+          <path class="illo-edge" marker-end="url(#ia)" d="M250,112 L274,112"/>
+          <path class="illo-edge" marker-end="url(#ia)" d="M250,174 C266,174 264,112 274,112"/>
+          <!-- grouping brace around the parallel band -->
+          <path class="illo-brace" d="M92,28 C86,28 86,34 86,40 L86,102 C86,108 82,112 78,112 C82,112 86,116 86,122 L86,184 C86,190 86,196 92,196"/>
           <!-- task -->
-          <rect class="illo-node accent" x="96" y="16" width="68" height="28" rx="8"/>
-          <text class="illo-label" x="130" y="34" text-anchor="middle" style="fill:var(--accent-2)">task</text>
-          <!-- three specialist agents -->
-          <circle class="illo-node" cx="56" cy="102" r="24"/>
-          <text class="illo-label" x="56" y="99" text-anchor="middle" style="font-size:8px">retriev.</text>
-          <text class="illo-label" x="56" y="110" text-anchor="middle" style="font-size:8px">agent</text>
-          <circle class="illo-node" cx="130" cy="102" r="24"/>
-          <text class="illo-label" x="130" y="99" text-anchor="middle" style="font-size:8px">synth.</text>
-          <text class="illo-label" x="130" y="110" text-anchor="middle" style="font-size:8px">agent</text>
-          <circle class="illo-node" cx="204" cy="102" r="24"/>
-          <text class="illo-label" x="204" y="99" text-anchor="middle" style="font-size:8px">verifier</text>
-          <text class="illo-label" x="204" y="110" text-anchor="middle" style="font-size:8px">agent</text>
-          <!-- merged output -->
-          <rect class="illo-node accent" x="96" y="162" width="68" height="28" rx="8"/>
-          <text class="illo-label" x="130" y="180" text-anchor="middle" style="fill:var(--accent-2)">answer</text>
+          <rect class="illo-node accent" x="10" y="96" width="56" height="32" rx="9"/>
+          <text class="illo-label" x="38" y="116" text-anchor="middle" style="fill:var(--accent-2)">task</text>
+          <!-- three specialist lanes -->
+          <rect class="illo-node" x="100" y="32" width="150" height="36" rx="10"/>
+          <text class="illo-label" x="120" y="54" style="fill:var(--ink-2)">retriever</text>
+          <rect class="illo-node" x="100" y="94" width="150" height="36" rx="10"/>
+          <text class="illo-label" x="120" y="116" style="fill:var(--ink-2)">synthesizer</text>
+          <rect class="illo-node" x="100" y="156" width="150" height="36" rx="10"/>
+          <text class="illo-label" x="120" y="178" style="fill:var(--ink-2)">verifier</text>
+          <!-- merged answer -->
+          <rect class="illo-node accent" x="274" y="96" width="56" height="32" rx="9"/>
+          <text class="illo-label" x="302" y="116" text-anchor="middle" style="fill:var(--accent-2)">answer</text>
+          <!-- caption -->
+          <text class="illo-cap" x="175" y="216" text-anchor="middle">parallel specialists &middot; one merged voice</text>
         </svg>
       </div>
     </div>
