@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>CEO-Delta · Evidence Console</title>
+<title>Conductor-Delta · Evidence Console</title>
 <style>
   /* ============================================================
-     CEO-Delta — Evidence Console
+     Conductor-Delta — Evidence Console
      Self-contained. No network calls. Offline-safe (file://).
      Drop scripts/evidence_results.json onto the page to load a
      fresh run; sample data is embedded so the page renders on open.
@@ -601,7 +601,7 @@
   <div class="top-inner">
     <div class="brand">
       <span class="glyph">E∕F</span>
-      <span class="name">CEO-Delta</span>
+      <span class="name">Conductor-Delta</span>
       <span class="sub">Evidence Console</span>
     </div>
     <div class="status-strip">
@@ -721,13 +721,13 @@
       <span class="claim-name">Architecture</span>
       <span class="verdict-tag ref-tag"><span class="ic">&#9670;</span>MODEL OVERVIEW</span>
     </div>
-    <h2 class="headline">How CEO-Delta plans, measures, and repairs</h2>
+    <h2 class="headline">How Conductor-Delta plans, measures, and repairs</h2>
     <p class="subcopy">The mental model behind the claims below — the shared coordinate system, the information flow, and the module map that separate this from an LLM in a loop.</p>
   </div>
 
   <div class="card arch-block headline-block emphasis">
     <h3 class="block-title">The core idea: a task's required shape, and the plan's distance from it</h3>
-    <p class="block-copy">To govern a collaboration you first need to <b>measure</b> it. CEO-Delta does that with two
+    <p class="block-copy">To govern a collaboration you first need to <b>measure</b> it. Conductor-Delta does that with two
       objects that live in the <b>same coordinate system</b> &mdash; four structural axes:
       <span class="mono">partition &middot; flow &middot; role &middot; scale</span>. Read it in three steps.</p>
 
@@ -747,7 +747,7 @@
         <div>
           <p class="sub-head">E &mdash; how far the <i>built</i> plan sits from F</p>
           <p class="sub-body">After the plan is built and run, we measure it on the very same four axes and take the
-            per-axis <b>distance from F</b>. That distance vector is <span class="mono">E</span> (the error tensor),
+            per-axis <b>distance from F</b>. That distance vector is <span class="mono">E</span> (the fingerprint gap),
             each axis in <span class="mono">[0,1]</span>. Low E means the plan matches the shape the task demanded.</p>
         </div>
       </div>
@@ -809,7 +809,7 @@
         <path id="e5" class="flow-edge" marker-end="url(#fa1)" d="M770,140 L790,140"/>
         <path id="e6" class="flow-edge" marker-end="url(#fa1)" d="M930,140 L950,140"/>
 
-        <!-- inner repair loop: DELTA -> CEO -->
+        <!-- inner repair loop: DELTA -> CONDUCTOR -->
         <path id="loopPath" class="flow-edge loop" marker-end="url(#fa2)" d="M690,112 C690,40 370,40 370,112"/>
         <text class="flow-label loop" x="530" y="32" text-anchor="middle">inner loop &middot; repair directive, descend on worst axis</text>
 
@@ -828,7 +828,7 @@
           <text class="sub" x="220" y="155" text-anchor="middle">intent &#8594; F</text></g>
 
         <g class="flow-node emphasis"><rect x="310" y="112" width="140" height="56" rx="10"/>
-          <text class="ttl" x="380" y="138" text-anchor="middle">CEO</text>
+          <text class="ttl" x="380" y="138" text-anchor="middle">CONDUCTOR</text>
           <text class="sub" x="380" y="155" text-anchor="middle">plan &#8594; DAG</text></g>
 
         <g class="flow-node"><rect x="470" y="112" width="140" height="56" rx="10"/>
@@ -873,11 +873,11 @@
       <div class="more-body">
         <p><b>1&ndash;2 &middot; Classify.</b> <span class="mono">RESEARCH.clarify()</span> turns raw intent into the
           structural fingerprint; <span class="mono">compute_required()</span> derives F. Both deterministic.</p>
-        <p><b>3&ndash;6 &middot; Plan &amp; run (inner loop).</b> The CEO builds a DAG &mdash; warm-started from the
+        <p><b>3&ndash;6 &middot; Plan &amp; run (inner loop).</b> The conductor builds a DAG &mdash; warm-started from the
           store if this shape has been seen before. The KERNEL executes it; DELTA measures E, names the worst axis,
-          and either applies a deterministic graph repair or asks the CEO to replan. The delivered plan updates only
+          and either applies a deterministic graph repair or asks the conductor to replan. The delivered plan updates only
           under <b>PRESERVE</b> &mdash; it can hold still or improve, never regress.</p>
-        <p><b>7&ndash;8 &middot; Deliver.</b> <span class="mono">CEO.compose()</span> writes one coherent answer;
+        <p><b>7&ndash;8 &middot; Deliver.</b> <span class="mono">compose()</span> writes one coherent answer;
           Q-factor (groundedness, relevance) folds into the final verdict.</p>
         <p><b>Outer loop &middot; learn.</b> The best plan for this structural species persists to the F-keyed store,
           so the next task of the same shape starts warm instead of cold.</p>
@@ -908,7 +908,7 @@
     <details class="dgroup"><summary>Planning &amp; execution <span class="dcount">6 modules</span></summary>
       <div class="dgroup-body"><table class="modmap">
         <tr><td class="mod">research.py</td><td class="loc">254</td><td class="role">The Research agent: a parser, not a learner &mdash; raw intent &rarr; (fingerprint, specifics).</td></tr>
-        <tr><td class="mod">ceo.py</td><td class="loc">433</td><td class="role">The CEO planner: fingerprint &rarr; handbook &rarr; DAG; also <span class="mono">replan</span>, <span class="mono">force_verifier</span>, and <span class="mono">compose</span> (the single voice).</td></tr>
+        <tr><td class="mod">ceo.py</td><td class="loc">433</td><td class="role">The conductor / planner: fingerprint &rarr; handbook &rarr; DAG; also <span class="mono">replan</span>, <span class="mono">force_verifier</span>, and <span class="mono">compose</span> (the single voice).</td></tr>
         <tr><td class="mod">kernel.py</td><td class="loc">203</td><td class="role">The execution kernel (KAIJU-inspired); runs the DAG, flows outputs downstream.</td></tr>
         <tr><td class="mod">grounding.py</td><td class="loc">143</td><td class="role">Retriever nodes call <span class="mono">retrieve()</span> instead of hallucinating; backend-agnostic seam.</td></tr>
         <tr><td class="mod">llm.py</td><td class="loc">204</td><td class="role">vLLM OpenAI-compatible client (self-hosted Qwen); defensive JSON extraction.</td></tr>
@@ -927,7 +927,7 @@
       <div class="dgroup-body"><table class="modmap">
         <tr><td class="mod">ef_store.py</td><td class="loc">229</td><td class="role">F-keyed case memory; writes the per-species best plan &mdash; the E&ndash;F coupling made persistent.</td></tr>
         <tr><td class="mod">warmstart.py</td><td class="loc">74</td><td class="role">The read side of best-plan; reconstructs a runnable DAG.</td></tr>
-        <tr><td class="mod">handbook.py</td><td class="loc">132</td><td class="role">Topology/depth vote tallies with symmetric decay; CEO's prior.</td></tr>
+        <tr><td class="mod">handbook.py</td><td class="loc">132</td><td class="role">Topology/depth vote tallies with symmetric decay; the conductor's prior.</td></tr>
         <tr><td class="mod">escalation.py</td><td class="loc">246</td><td class="role">Case-based escalation: nearest precedent by weighted cosine, role-gated, LLM fallback below floor.</td></tr>
         <tr><td class="mod">bootstrap.py</td><td class="loc">173</td><td class="role">Cold-start seeding so run 1 isn't empty.</td></tr>
         <tr><td class="mod">reflection.py</td><td class="loc">93</td><td class="role">Periodic between-run reflection.</td></tr>
@@ -976,7 +976,7 @@ print(r.report.verdict, r.report.ef_tensor)"</div>
 
 <footer>
   <div class="wrap">
-    <span>CEO-Delta · research prototype — measured evidence, not marketing.</span>
+    <span>Conductor-Delta · research prototype — measured evidence, not marketing.</span>
     <span class="mono" id="foot-meta">—</span>
   </div>
 </footer>
@@ -1205,7 +1205,7 @@ function renderCapture(p) {
 function renderGeneralize(p) {
   const frag = document.createDocumentFragment();
   frag.appendChild(el("p", "subcopy",
-    "Two sentences with almost nothing in common on the surface. The error tensor is the dual of the fingerprint, so measurement happens in structure-space — phrasing washes out, and both collapse to one identical species."));
+    "Two sentences with almost nothing in common on the surface. The fingerprint gap is measured in structure-space, not word-space — so phrasing washes out, and both collapse to one identical species."));
 
   const card = el("div", "card gen-stage");
   const two = el("div", "gen-two");
@@ -1426,7 +1426,7 @@ function niceStep(raw) {
 function renderReuse(p) {
   const frag = document.createDocumentFragment();
   frag.appendChild(el("p", "subcopy",
-    "What descent learns is keyed to the task's shape, not its words. The second time CEO-Delta sees this species it warm-starts from the cached best plan and skips cold planning — converging in a single iteration."));
+    "What descent learns is keyed to the task's shape, not its words. The second time Conductor-Delta sees this species it warm-starts from the cached best plan and skips cold planning — converging in a single iteration."));
   const card = el("div", "card");
   const rows = el("div", "reuse-rows");
   if (p.task) {
