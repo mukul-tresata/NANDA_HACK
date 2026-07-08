@@ -1,5 +1,5 @@
-# Core runtime has ZERO third-party dependencies — stdlib only.
-# (urllib for the vLLM OpenAI-compatible API, hashlib for embeddings.)
+# Core runtime is pure-Python stdlib (urllib for the vLLM OpenAI-compatible API)
+# plus sentence-transformers for semantic embeddings (all-MiniLM-L6-v2).
 # pytest is only needed to run the test suite.
+sentence-transformers>=2.7.0
 pytest>=7.0
-sentence-transformers >= 2.7.0
