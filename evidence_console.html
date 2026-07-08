@@ -1,0 +1,1829 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Conductor-Delta · Evidence Console</title>
+<style>
+  /* ============================================================
+     Conductor-Delta — Evidence Console
+     Self-contained. No network calls. Offline-safe (file://).
+     Drop scripts/evidence_results.json onto the page to load a
+     fresh run; sample data is embedded so the page renders on open.
+     ============================================================ */
+
+  :root {
+    /* cool-graphite instrument palette — light */
+    --ground:    #F1F4F5;
+    --panel:     #FFFFFF;
+    --panel-2:   #F7F9FA;
+    --ink:       #101619;
+    --ink-2:     #47555C;
+    --ink-3:     #7C888E;
+    --line:      #E1E7EA;
+    --line-2:    #D2DADE;
+    --accent:    #0E8C99;
+    --accent-2:  #0B707B;
+    --accent-wash:#E2F2F3;
+    --good:      #2E9E5B;
+    --good-wash: #E4F3EA;
+    --warn:      #B9821A;
+    --warn-wash: #F6ECD8;
+    --bad:       #D24545;
+    --bad-wash:  #F8E4E4;
+    --region:    rgba(46,158,91,0.10);
+    --grid:      rgba(16,22,25,0.05);
+    --shadow:    0 1px 2px rgba(16,22,25,.04), 0 8px 28px rgba(16,22,25,.06);
+
+    --font-sans: "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, "Helvetica Neue", Arial, sans-serif;
+    --font-mono: "SF Mono", "JetBrains Mono", "Cascadia Code", "Roboto Mono", ui-monospace, Menlo, Consolas, monospace;
+
+    --maxw: 1080px;
+    --radius: 14px;
+    --radius-sm: 9px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground:    #0D1114;
+      --panel:     #151C20;
+      --panel-2:   #101619;
+      --ink:       #EAEFF1;
+      --ink-2:     #A6B2B8;
+      --ink-3:     #6C787E;
+      --line:      #232C31;
+      --line-2:    #2E393F;
+      --accent:    #26BDCB;
+      --accent-2:  #4FD3DE;
+      --accent-wash:#0F2A2E;
+      --good:      #37B96D;
+      --good-wash: #10281C;
+      --warn:      #D3A03F;
+      --warn-wash: #2C2410;
+      --bad:       #E5605F;
+      --bad-wash:  #2E1616;
+      --region:    rgba(55,185,109,0.13);
+      --grid:      rgba(255,255,255,0.045);
+      --shadow:    0 1px 2px rgba(0,0,0,.35), 0 10px 34px rgba(0,0,0,.42);
+    }
+  }
+  /* explicit toggle wins over media query, both directions */
+  :root[data-theme="light"] {
+    --ground:#F1F4F5; --panel:#FFFFFF; --panel-2:#F7F9FA; --ink:#101619;
+    --ink-2:#47555C; --ink-3:#7C888E; --line:#E1E7EA; --line-2:#D2DADE;
+    --accent:#0E8C99; --accent-2:#0B707B; --accent-wash:#E2F2F3;
+    --good:#2E9E5B; --good-wash:#E4F3EA; --warn:#B9821A; --warn-wash:#F6ECD8;
+    --bad:#D24545; --bad-wash:#F8E4E4; --region:rgba(46,158,91,0.10);
+    --grid:rgba(16,22,25,0.05); --shadow:0 1px 2px rgba(16,22,25,.04), 0 8px 28px rgba(16,22,25,.06);
+  }
+  :root[data-theme="dark"] {
+    --ground:#0D1114; --panel:#151C20; --panel-2:#101619; --ink:#EAEFF1;
+    --ink-2:#A6B2B8; --ink-3:#6C787E; --line:#232C31; --line-2:#2E393F;
+    --accent:#26BDCB; --accent-2:#4FD3DE; --accent-wash:#0F2A2E;
+    --good:#37B96D; --good-wash:#10281C; --warn:#D3A03F; --warn-wash:#2C2410;
+    --bad:#E5605F; --bad-wash:#2E1616; --region:rgba(55,185,109,0.13);
+    --grid:rgba(255,255,255,0.045); --shadow:0 1px 2px rgba(0,0,0,.35), 0 10px 34px rgba(0,0,0,.42);
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.55;
+    /* Screen-share legibility bump -- scales the whole page uniformly
+       (fonts, spacing, charts) without touching individual sizes. */
+    zoom: 1.18;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 28px; }
+
+  /* ---------- top bar / loader ---------- */
+  header.top {
+    position: sticky; top: 0; z-index: 50;
+    background: color-mix(in srgb, var(--ground) 86%, transparent);
+    backdrop-filter: saturate(1.4) blur(10px);
+    -webkit-backdrop-filter: saturate(1.4) blur(10px);
+    border-bottom: 1px solid var(--line);
+  }
+  .top-inner {
+    max-width: var(--maxw); margin: 0 auto; padding: 12px 28px;
+    display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+  }
+  .brand { display: flex; align-items: baseline; gap: 10px; margin-right: auto; }
+  .brand .glyph {
+    font-family: var(--font-mono); font-weight: 700; font-size: 15px;
+    letter-spacing: .04em; color: var(--accent);
+    border: 1.5px solid var(--accent); border-radius: 7px;
+    padding: 2px 8px; line-height: 1;
+  }
+  .brand .name { font-weight: 650; letter-spacing: -.01em; font-size: 15px; }
+  .brand .sub { color: var(--ink-3); font-size: 12.5px; }
+
+  .status-strip { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .status-item { display: flex; flex-direction: column; line-height: 1.2; }
+  .status-item .k { font-size: 10px; text-transform: uppercase; letter-spacing: .09em; color: var(--ink-3); }
+  .status-item .v { font-family: var(--font-mono); font-size: 12.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+
+  .badge {
+    font-family: var(--font-mono); font-size: 10.5px; font-weight: 600;
+    letter-spacing: .06em; text-transform: uppercase;
+    padding: 3px 8px; border-radius: 999px; white-space: nowrap;
+  }
+  .badge.sample { background: var(--warn-wash); color: var(--warn); border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent); }
+  .badge.live   { background: var(--good-wash); color: var(--good); border: 1px solid color-mix(in srgb, var(--good) 35%, transparent); }
+
+  .btn {
+    font-family: var(--font-sans); font-size: 13px; font-weight: 550;
+    color: var(--ink); background: var(--panel);
+    border: 1px solid var(--line-2); border-radius: 9px;
+    padding: 7px 13px; cursor: pointer; transition: border-color .15s, background .15s;
+  }
+  .btn:hover { border-color: var(--accent); }
+  .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .theme-toggle {
+    background: transparent; border: 1px solid var(--line-2); color: var(--ink-2);
+    width: 34px; height: 34px; border-radius: 9px; cursor: pointer; font-size: 15px;
+    display: grid; place-items: center;
+  }
+  .theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
+  .theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* ---------- drop overlay ---------- */
+  #drop-overlay {
+    position: fixed; inset: 0; z-index: 200; display: none;
+    background: color-mix(in srgb, var(--ground) 72%, transparent);
+    backdrop-filter: blur(3px);
+    place-items: center; padding: 40px;
+  }
+  #drop-overlay.on { display: grid; }
+  .drop-card {
+    border: 2px dashed var(--accent); border-radius: 20px;
+    background: var(--panel); padding: 48px 64px; text-align: center; box-shadow: var(--shadow);
+  }
+  .drop-card .big { font-size: 20px; font-weight: 650; margin-bottom: 6px; }
+  .drop-card .small { color: var(--ink-3); font-size: 13.5px; }
+  .drop-card .ic { font-size: 34px; margin-bottom: 10px; }
+
+  /* ---------- hero ---------- */
+  .hero { position: relative; overflow: hidden; border-bottom: 1px solid var(--line); }
+  .hero::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 34px 34px;
+    mask-image: radial-gradient(120% 80% at 78% 0%, #000 0%, transparent 68%);
+    -webkit-mask-image: radial-gradient(120% 80% at 78% 0%, #000 0%, transparent 68%);
+  }
+  .hero-inner { position: relative; padding: 56px 0 46px; }
+  .eyebrow {
+    font-family: var(--font-mono); font-size: 11.5px; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--accent); font-weight: 600; margin-bottom: 16px;
+  }
+  h1.title {
+    font-size: clamp(30px, 5vw, 46px); line-height: 1.05; letter-spacing: -.022em;
+    font-weight: 680; margin: 0 0 18px; text-wrap: pretty; max-width: none;
+  }
+  .lede { font-size: clamp(15px, 2.1vw, 18px); color: var(--ink-2); max-width: 62ch; margin: 0; line-height: 1.5; }
+  .lede b { color: var(--ink); font-weight: 620; }
+  .basis-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 26px; }
+  .basis-label { font-family: var(--font-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); }
+  .axis-chip {
+    font-family: var(--font-mono); font-size: 12px; padding: 4px 10px; border-radius: 8px;
+    background: var(--panel); border: 1px solid var(--line-2); color: var(--ink-2);
+  }
+  .axis-chip.q { border-style: dashed; }
+
+  /* ---------- problem framing: punchy pitch cards + expand-for-detail ---------- */
+  .problem-frame { padding: 10px 0 40px; display: flex; flex-direction: column; gap: 20px; }
+
+  .pitch-card { padding: 30px 32px; }
+  .pitch-card.emphasis { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset, var(--shadow); }
+  .pitch-kicker {
+    font-family: var(--font-mono); font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--accent-2); font-weight: 700; margin-bottom: 14px;
+  }
+  .pitch-headline {
+    font-size: clamp(24px, 3.4vw, 33px); line-height: 1.12; letter-spacing: -.02em; font-weight: 680;
+    color: var(--ink); margin: 0; text-wrap: pretty; max-width: none;
+  }
+  .pitch-punch {
+    font-size: clamp(15px, 1.8vw, 18px); line-height: 1.5; color: var(--ink-2); margin: 16px 0 0; max-width: none;
+  }
+  .pitch-punch b { color: var(--ink); font-weight: 620; }
+
+  /* the "expand when I want to talk about it" dropdown */
+  details.more { margin-top: 20px; border-top: 1px solid var(--line); }
+  details.more > summary {
+    list-style: none; cursor: pointer; padding: 13px 0 0; display: inline-flex; align-items: center; gap: 8px;
+    font-family: var(--font-mono); font-size: 12px; letter-spacing: .04em; text-transform: uppercase;
+    color: var(--ink-3); font-weight: 650; user-select: none;
+  }
+  details.more > summary::-webkit-details-marker { display: none; }
+  details.more > summary::before {
+    content: "+"; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 5px;
+    border: 1px solid var(--line-2); color: var(--accent-2); font-weight: 700; font-size: 13px;
+  }
+  details.more[open] > summary::before { content: "\2212"; }
+  details.more > summary:hover { color: var(--ink-2); }
+  .more-body { padding: 14px 0 2px; }
+  .more-body p { font-size: 14.5px; line-height: 1.6; color: var(--ink-2); margin: 0 0 11px; max-width: 70ch; }
+  .more-body p:last-child { margin-bottom: 0; }
+  .more-body b { color: var(--ink); font-weight: 600; }
+
+  /* three failure-mode chips inside THE BREAK */
+  .break-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 24px; }
+  .break-card {
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 16px 16px 8px;
+  }
+  .break-name {
+    font-family: var(--font-mono); font-size: 12.5px; letter-spacing: .04em; text-transform: uppercase;
+    color: var(--bad); font-weight: 700; margin-bottom: 8px;
+  }
+  .break-line { font-size: 14px; line-height: 1.45; color: var(--ink); font-weight: 550; margin: 0; }
+  details.mini { margin-top: 10px; }
+  details.mini > summary {
+    list-style: none; cursor: pointer; font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .05em;
+    text-transform: uppercase; color: var(--ink-3); font-weight: 600; padding: 8px 0; user-select: none;
+  }
+  details.mini > summary::-webkit-details-marker { display: none; }
+  details.mini > summary::before { content: "+ "; color: var(--accent-2); font-weight: 700; }
+  details.mini[open] > summary::before { content: "\2212 "; }
+  details.mini .mini-body { font-size: 12.5px; line-height: 1.55; color: var(--ink-2); padding-bottom: 10px; }
+  details.mini .mini-body b { color: var(--ink); font-weight: 600; }
+  @media (max-width: 760px) { .break-grid { grid-template-columns: 1fr; } }
+
+  /* ---------- claim nav ---------- */
+  nav.claims {
+    position: sticky; top: 58px; z-index: 40;
+    background: color-mix(in srgb, var(--ground) 86%, transparent);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+  }
+  .claims-inner { max-width: var(--maxw); margin: 0 auto; padding: 9px 28px; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
+  .claims-inner::-webkit-scrollbar { display: none; }
+  .navpill {
+    display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
+    text-decoration: none; color: var(--ink-2); font-size: 12.5px; font-weight: 550;
+    padding: 6px 12px; border-radius: 999px; border: 1px solid transparent; transition: all .15s;
+  }
+  .navpill .n { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); }
+  .navpill.ref { color: var(--ink-3); }
+  .navpill.ref .n { color: var(--accent-2); }
+  .navpill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--good); box-shadow: 0 0 0 3px var(--good-wash); }
+  .navpill .dot.fail { background: var(--bad); box-shadow: 0 0 0 3px var(--bad-wash); }
+  .navpill:hover { background: var(--panel); border-color: var(--line-2); color: var(--ink); }
+  .navpill.active { background: var(--panel); border-color: var(--accent); color: var(--ink); }
+  .navpill:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* ---------- panels ---------- */
+  main { padding: 8px 0 90px; }
+  .panel { padding: 54px 0 10px; scroll-margin-top: 112px; }
+  .panel-head { margin-bottom: 22px; }
+
+  /* ---------- left spine: threads every movement into one narrative ---------- */
+  .panel, .pitch-card { position: relative; }
+  .panel::before, .pitch-card::before {
+    content: ""; position: absolute; left: -26px; top: 0; bottom: 0; width: 2px;
+    background: var(--line); border-radius: 2px;
+  }
+  .pitch-card::before { bottom: -20px; }           /* bridge the flex gap between problem cards */
+  .panel::after, .pitch-card::after {
+    content: ""; position: absolute; left: -31px; width: 12px; height: 12px; border-radius: 50%;
+    background: var(--ground); border: 2px solid var(--accent); box-shadow: 0 0 0 4px var(--accent-wash);
+  }
+  .panel::after { top: 58px; }
+  .pitch-card::after { top: 34px; }
+  @media (max-width: 980px) { .panel::before, .panel::after, .pitch-card::before, .pitch-card::after { display: none; } }
+  .panel-eyebrow { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+  .claim-no { font-family: var(--font-mono); font-size: 12px; color: var(--ink-3); letter-spacing: .05em; }
+  .claim-name { font-family: var(--font-mono); font-size: 12px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--accent); }
+  .verdict-tag {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600;
+    font-family: var(--font-mono); letter-spacing: .04em; padding: 3px 9px 3px 7px; border-radius: 999px;
+  }
+  .verdict-tag.pass { background: var(--good-wash); color: var(--good); }
+  .verdict-tag.fail { background: var(--bad-wash); color: var(--bad); }
+  .verdict-tag .ic { font-size: 12px; }
+  h2.headline { font-size: clamp(21px, 3vw, 27px); line-height: 1.2; letter-spacing: -.015em; font-weight: 640; margin: 0; text-wrap: pretty; max-width: none; }
+  .subcopy { color: var(--ink-2); font-size: 14.5px; margin: 10px 0 0; max-width: none; }
+
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+
+  /* CAPTURE — task cards */
+  .capture-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .task-card { padding: 20px 18px; display: flex; flex-direction: column; gap: 16px; }
+  .task-card .qline { font-size: 14.5px; line-height: 1.45; color: var(--ink); font-weight: 500; }
+  .task-card .qline::before { content: "\201C"; color: var(--accent); font-weight: 700; }
+  .task-card .qline::after { content: "\201D"; color: var(--accent); font-weight: 700; }
+  .species { display: grid; gap: 7px; }
+  .sattr { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .sattr .lab { font-size: 10px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-3); }
+  .sattr .val { font-family: var(--font-mono); font-size: 12px; color: var(--ink); background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 2px 8px; }
+
+  /* GENERALIZE — the climax */
+  .gen-stage { padding: 30px 26px 26px; }
+  .gen-two { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 20px; }
+  .gen-sent {
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius-sm);
+    padding: 20px 18px; font-size: 15px; line-height: 1.45; position: relative;
+  }
+  .gen-sent .tag { font-family: var(--font-mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); display: block; margin-bottom: 9px; }
+  .gen-sent .txt::before { content: "\201C"; color: var(--ink-3); }
+  .gen-sent .txt::after { content: "\201D"; color: var(--ink-3); }
+  .cosine-gate { display: grid; place-items: center; gap: 6px; text-align: center; min-width: 128px; }
+  .cosine-num { font-family: var(--font-mono); font-size: 30px; font-weight: 700; letter-spacing: -.02em; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .cosine-lab { font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-3); }
+  .cosine-verdict { font-size: 11.5px; font-weight: 600; color: var(--bad); background: var(--bad-wash); padding: 3px 9px; border-radius: 999px; }
+  .cosine-bar { width: 108px; height: 6px; border-radius: 999px; background: var(--line); overflow: hidden; }
+  .cosine-bar > i { display: block; height: 100%; background: var(--ink-3); border-radius: 999px; }
+  .collapse-row { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: 26px; }
+  .collapse-arrow { display: flex; align-items: center; gap: 10px; color: var(--accent); font-family: var(--font-mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }
+  .collapse-arrow .ln { width: 46px; height: 1.5px; background: linear-gradient(90deg, transparent, var(--accent)); }
+  .collapse-arrow .ln.r { background: linear-gradient(90deg, var(--accent), transparent); }
+  .unified-species {
+    border: 1.5px solid var(--accent); background: var(--accent-wash); border-radius: var(--radius-sm);
+    padding: 16px 20px; display: flex; align-items: center; gap: 12px 22px; flex-wrap: wrap; justify-content: center;
+  }
+  .unified-species .u-lab { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--accent-2); }
+  .uchip { font-family: var(--font-mono); font-size: 12.5px; color: var(--ink); }
+  .uchip b { color: var(--accent-2); }
+
+  /* DESCEND */
+  .descend-grid { display: grid; grid-template-columns: 1.35fr 1fr; gap: 16px; align-items: stretch; }
+  .chart-card { padding: 20px 20px 14px; display: flex; flex-direction: column; }
+  .chart-title { font-size: 12.5px; font-weight: 600; color: var(--ink-2); margin-bottom: 2px; }
+  .chart-sub { font-size: 11.5px; color: var(--ink-3); margin-bottom: 8px; }
+  .chart-holder { flex: 1; min-height: 0; }
+  svg.descent { width: 100%; height: auto; display: block; }
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+  .tile { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 12px 13px; box-shadow: var(--shadow); }
+  .tile .k { font-size: 10px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-3); margin-bottom: 5px; }
+  .tile .v { font-family: var(--font-mono); font-size: 20px; font-weight: 650; line-height: 1; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .tile .v.good { color: var(--good); } .tile .v.bad { color: var(--bad); } .tile .v.warn { color: var(--warn); }
+  .movelog { display: flex; flex-direction: column; gap: 8px; }
+  .move {
+    display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px;
+    padding: 10px 12px; border-radius: var(--radius-sm); border: 1px solid var(--line); background: var(--panel);
+  }
+  .move.kept { border-left: 3px solid var(--good); }
+  .move.rejected { border-left: 3px solid var(--bad); }
+  .move .mic { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; color: #fff; }
+  .move.kept .mic { background: var(--good); } .move.rejected .mic { background: var(--bad); }
+  .move .mid { font-family: var(--font-mono); font-size: 12.5px; color: var(--ink); }
+  .move .maxis { font-size: 10.5px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .05em; }
+  .move .mdelta { font-family: var(--font-mono); font-size: 12px; color: var(--ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .move .mdelta .to { color: var(--ink); font-weight: 600; }
+
+  /* tensor heat-strip */
+  .tensor-wrap { margin-top: 16px; overflow-x: auto; }
+  table.tensor { border-collapse: separate; border-spacing: 4px; width: 100%; min-width: 420px; }
+  table.tensor th { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-3); font-weight: 600; text-align: center; padding: 2px 4px; }
+  table.tensor th.rowlab, table.tensor td.rowlab { text-align: left; font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); white-space: nowrap; }
+  table.tensor td.cell { text-align: center; font-family: var(--font-mono); font-size: 12.5px; font-variant-numeric: tabular-nums; border-radius: 7px; padding: 8px 6px; color: var(--ink); border: 1px solid transparent; }
+  .cell.under { background: var(--good-wash); color: var(--good); }
+  .cell.over  { background: var(--bad-wash); color: var(--bad); }
+  .cell.zero  { background: var(--panel-2); color: var(--ink-3); }
+
+  /* REUSE */
+  .reuse-rows { display: grid; gap: 12px; padding: 20px; }
+  .run-row { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 16px; padding: 16px 18px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel-2); }
+  .run-row.warm { background: var(--accent-wash); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+  .run-label { font-family: var(--font-mono); font-size: 13px; font-weight: 600; color: var(--ink); }
+  .run-note { font-size: 12.5px; color: var(--ink-3); }
+  .run-metric { text-align: right; }
+  .run-metric .k { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-3); }
+  .run-metric .v { font-family: var(--font-mono); font-size: 17px; font-weight: 650; color: var(--ink); }
+  .warm-badge { font-family: var(--font-mono); font-size: 11px; font-weight: 600; color: var(--accent-2); background: var(--panel); border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); border-radius: 999px; padding: 4px 10px; white-space: nowrap; }
+  .cold-badge { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); border: 1px solid var(--line-2); border-radius: 999px; padding: 4px 10px; white-space: nowrap; }
+
+  /* CONVERGE */
+  .converge-card { padding: 22px 22px 18px; }
+  .region-plot { position: relative; margin: 8px 0 22px; }
+  svg.region { width: 100%; height: auto; display: block; }
+  .converge-legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 12px; color: var(--ink-2); margin-top: 4px; }
+  .lg { display: inline-flex; align-items: center; gap: 7px; }
+  .lg .sw { width: 12px; height: 12px; border-radius: 3px; border: 1px solid var(--line-2); }
+  .reps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 4px; }
+  .rep { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 14px; background: var(--panel-2); }
+  .rep .rhead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .rep .seed { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .06em; }
+  .vpill { font-family: var(--font-mono); font-size: 11px; font-weight: 600; padding: 2px 9px; border-radius: 999px; }
+  .vpill.good { background: var(--good-wash); color: var(--good); }
+  .vpill.mixed { background: var(--warn-wash); color: var(--warn); }
+  .vpill.poor { background: var(--bad-wash); color: var(--bad); }
+  .mini-ax { display: grid; gap: 5px; }
+  .mini-ax .mrow { display: grid; grid-template-columns: 58px 1fr auto; align-items: center; gap: 8px; }
+  .mini-ax .mrow .ml { font-size: 10px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .04em; }
+  .mini-ax .track { height: 5px; background: var(--line); border-radius: 999px; position: relative; overflow: hidden; }
+  .mini-ax .track > i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; }
+  .mini-ax .mv { font-family: var(--font-mono); font-size: 11px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+
+  /* ---------- static reference panels (Architecture / Methodology) ---------- */
+  .dot.info { background: var(--accent); box-shadow: 0 0 0 3px var(--accent-wash); }
+  .ref-tag { background: var(--accent-wash); color: var(--accent-2); }
+  .arch-block { padding: 22px 24px; margin-bottom: 16px; }
+  .block-title { font-size: 15.5px; font-weight: 640; margin: 0 0 4px; letter-spacing: -.008em; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .block-sub { font-size: 11.5px; font-weight: 500; color: var(--ink-3); font-family: var(--font-mono); letter-spacing: 0; }
+  .block-copy { color: var(--ink-2); font-size: 14px; line-height: 1.6; max-width: none; margin: 10px 0 0; }
+  .block-copy + .block-copy { margin-top: 10px; }
+  .block-copy b { color: var(--ink); font-weight: 620; }
+
+  /* the crown-jewel card: emphasized, with clear numbered-step hierarchy */
+  .arch-block.headline-block { padding: 30px 32px; }
+  .arch-block.headline-block .block-title { font-size: clamp(20px, 2.6vw, 26px); font-weight: 680; letter-spacing: -.018em; margin-bottom: 6px; }
+  .core-steps { margin: 22px 0 0; display: flex; flex-direction: column; gap: 2px; }
+  .core-step { display: grid; grid-template-columns: auto 1fr; gap: 16px; padding: 16px 0; border-top: 1px solid var(--line); }
+  .core-step:first-child { border-top: none; }
+  .core-step .n {
+    font-family: var(--font-mono); font-size: 12px; font-weight: 700; color: var(--accent-2);
+    width: 26px; height: 26px; border-radius: 7px; border: 1px solid var(--line-2);
+    display: grid; place-items: center; margin-top: 2px;
+  }
+  .core-step .sub-head { font-size: 16px; font-weight: 640; color: var(--ink); margin: 0 0 5px; letter-spacing: -.01em; }
+  .core-step .sub-body { font-size: 14px; line-height: 1.6; color: var(--ink-2); margin: 0; max-width: none; }
+  .core-step .sub-body b { color: var(--ink); font-weight: 620; }
+  .core-step .sub-body .mono { color: var(--accent-2); }
+  .core-payoff {
+    margin-top: 22px; padding: 18px 20px; border-radius: var(--radius-sm);
+    background: var(--accent-wash); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  }
+  .core-payoff p { margin: 0; font-size: 14.5px; line-height: 1.55; color: var(--ink); }
+  .core-payoff p b { color: var(--accent-2); }
+  @media (max-width: 620px) { .core-step { grid-template-columns: 1fr; gap: 6px; } }
+
+  .hook-card { padding: 22px 24px; border-left: 3px solid var(--accent); }
+  .hook-lab { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--accent-2); font-weight: 600; }
+  .hook-text { font-size: 15.5px; line-height: 1.6; color: var(--ink); margin: 10px 0 0; font-style: italic; max-width: none; }
+
+  .stepper { list-style: none; margin: 14px 0 0; padding: 0; position: relative; }
+  .stepper li { position: relative; padding: 0 0 20px 34px; }
+  .stepper li:last-child { padding-bottom: 0; }
+  .stepper li::before {
+    content: attr(data-n); position: absolute; left: 0; top: 0; width: 24px; height: 24px;
+    border-radius: 50%; background: var(--panel-2); border: 1px solid var(--line-2);
+    color: var(--ink-2); font-family: var(--font-mono); font-size: 10.5px; font-weight: 700;
+    display: grid; place-items: center;
+  }
+  .stepper li::after {
+    content: ""; position: absolute; left: 11.5px; top: 26px; bottom: -2px; width: 1px; background: var(--line);
+  }
+  .stepper li:last-child::after { display: none; }
+  .step-title { font-size: 13.5px; font-weight: 600; color: var(--ink); }
+  .step-title .mono { font-weight: 600; }
+
+  /* Flow diagram (information flow through the pipeline) — bigger, animated */
+  .flow-diagram { margin-top: 20px; }
+  .flow-diagram svg { width: 100%; height: auto; display: block; overflow: visible; }
+  .flow-node rect {
+    fill: var(--panel-2); stroke: var(--line-2); stroke-width: 1.4;
+    transition: stroke .2s;
+  }
+  .flow-node.emphasis rect { stroke: var(--accent); stroke-width: 1.8; }
+  .flow-node.hub rect { stroke: var(--accent); stroke-width: 2.6; fill: var(--accent-wash); }
+  .flow-node.store rect { fill: color-mix(in srgb, var(--ink-3) 8%, var(--panel-2)); stroke-dasharray: 4 3; }
+  .flow-node text.ttl { font-family: var(--font-mono); font-size: 14px; font-weight: 700; fill: var(--ink); letter-spacing: .02em; }
+  .flow-node text.sub { font-family: var(--font-mono); font-size: 10.5px; fill: var(--ink-3); }
+  .flow-node.emphasis text.ttl { fill: var(--accent-2); }
+  .flow-node.hub text.ttl { fill: var(--accent-2); font-size: 15px; }
+  .flow-node.hub text.sub { fill: var(--accent-2); opacity: .85; }
+  .flow-edge { stroke: var(--line-2); stroke-width: 1.8; fill: none; }
+  .flow-edge.loop { stroke: var(--accent); stroke-width: 1.8; stroke-dasharray: 5 4; }
+  .flow-edge.mem { stroke: var(--ink-3); stroke-width: 1.5; stroke-dasharray: 3 4; opacity: .7; }
+  .flow-label { font-family: var(--font-mono); font-size: 11.5px; fill: var(--ink-3); letter-spacing: .02em; }
+  .flow-label.loop { fill: var(--accent-2); font-weight: 600; }
+  /* animated packets travelling the pipeline */
+  .packet { fill: var(--accent); }
+  .packet.mem-dot { fill: var(--ink-3); }
+  @media (prefers-reduced-motion: reduce) {
+    .flow-diagram svg animateMotion { display: none; }
+    .packet { display: none; }
+  }
+  /* flow diagram caption legend */
+  .flow-legend {
+    display: flex; flex-wrap: wrap; gap: 18px; margin-top: 18px;
+    font-family: var(--font-mono); font-size: 12px; color: var(--ink-3);
+  }
+  .flow-legend .lg { display: inline-flex; align-items: center; gap: 7px; }
+  .flow-legend .swatch { width: 20px; height: 0; border-top: 2px solid var(--line-2); }
+  .flow-legend .swatch.loop { border-top: 2px dashed var(--accent); }
+  .flow-legend .swatch.mem { border-top: 2px dashed var(--ink-3); }
+  .step-detail { font-size: 13px; color: var(--ink-2); margin-top: 3px; line-height: 1.5; }
+  .step-tag {
+    display: inline-block; margin-left: 8px; font-family: var(--font-mono); font-size: 10px; font-weight: 700;
+    letter-spacing: .04em; color: var(--accent-2); background: var(--accent-wash); border-radius: 5px; padding: 1px 6px;
+    vertical-align: middle;
+  }
+  .stepper li.loop-start::before, .stepper li.loop-end::before { border-color: var(--accent); color: var(--accent-2); }
+
+  details.dgroup, details.ddec {
+    border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel-2);
+    margin-bottom: 9px; overflow: hidden;
+  }
+  details.dgroup summary, details.ddec summary {
+    cursor: pointer; padding: 12px 16px; font-size: 13.5px; font-weight: 600; color: var(--ink);
+    display: flex; align-items: center; justify-content: space-between; gap: 10px; list-style: none;
+  }
+  details.dgroup summary::-webkit-details-marker, details.ddec summary::-webkit-details-marker { display: none; }
+  details.dgroup summary::after, details.ddec summary::after {
+    content: "+"; font-family: var(--font-mono); color: var(--ink-3); font-size: 15px; font-weight: 400; flex-shrink: 0;
+  }
+  details[open].dgroup summary::after, details[open].ddec summary::after { content: "\2212"; }
+  details.dgroup summary .dcount { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); font-weight: 500; margin-right: auto; padding-left: 10px; }
+  .ddec summary .drule { font-family: var(--font-mono); font-size: 12.5px; }
+  .dgroup-body, .ddec-body { padding: 0 16px 14px; }
+  .ddec-body p { font-size: 13px; color: var(--ink-2); line-height: 1.55; margin: 0; }
+  .ddec-body p b { color: var(--accent-2); font-weight: 600; }
+
+  table.modmap { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  table.modmap td { padding: 7px 8px; border-top: 1px solid var(--line); vertical-align: top; }
+  table.modmap tr:first-child td { border-top: none; }
+  table.modmap td.mod { font-family: var(--font-mono); color: var(--ink); white-space: nowrap; font-weight: 600; }
+  table.modmap td.loc { font-family: var(--font-mono); color: var(--ink-3); text-align: right; white-space: nowrap; }
+  table.modmap td.role { color: var(--ink-2); }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 14px; }
+  .two-col h4 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-3); margin: 0 0 10px; font-weight: 650; }
+  .two-col ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 9px; }
+  .two-col li { font-size: 13px; color: var(--ink-2); line-height: 1.5; padding-left: 15px; position: relative; }
+  .two-col li::before { content: ""; position: absolute; left: 0; top: 7px; width: 6px; height: 6px; border-radius: 50%; background: var(--line-2); }
+  .two-col.orig li::before { background: var(--accent); }
+  .two-col li b { color: var(--ink); font-weight: 600; }
+
+  .codeblock {
+    font-family: var(--font-mono); font-size: 12.5px; background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: var(--radius-sm); padding: 12px 14px; margin: 12px 0 0; overflow-x: auto; color: var(--ink);
+    line-height: 1.6; white-space: pre;
+  }
+  .codeblock .cmt { color: var(--ink-3); }
+
+  ul.plainlist { margin: 10px 0 0; padding: 0 0 0 18px; }
+  ul.plainlist li { font-size: 13.5px; color: var(--ink-2); line-height: 1.6; margin-bottom: 6px; }
+  ul.plainlist li b { color: var(--ink); font-weight: 600; }
+  ul.plainlist li .mono { font-size: 12.5px; }
+
+  @media (max-width: 760px) {
+    .two-col { grid-template-columns: 1fr; }
+  }
+
+  /* card with an illustration beside the copy */
+  .pitch-split { display: grid; grid-template-columns: 1fr 300px; gap: 34px; align-items: center; }
+  .pitch-split > .pitch-text { min-width: 0; }
+  .pitch-split .illo { width: 100%; height: auto; display: block; }
+  .illo-node { fill: var(--panel-2); stroke: var(--line-2); stroke-width: 1.6; }
+  .illo-node.accent { fill: var(--accent-wash); stroke: var(--accent); stroke-width: 2; }
+  .illo-node.bad { stroke: var(--bad); }
+  .illo-edge { stroke: var(--line-2); stroke-width: 1.6; fill: none; }
+  .illo-edge.accent { stroke: var(--accent); stroke-width: 1.8; }
+  .illo-edge.tangle { stroke: var(--bad); stroke-width: 1.4; opacity: .7; fill: none; }
+  .illo-label { font-family: var(--font-mono); font-size: 10px; fill: var(--ink-3); letter-spacing: .04em; text-transform: uppercase; }
+  .illo-brace { fill: none; stroke: var(--line); stroke-width: 1.4; }
+  .illo-cap { font-family: var(--font-mono); font-size: 9px; fill: var(--ink-3); letter-spacing: .05em; text-transform: uppercase; }
+  .illo-arrow { stroke: var(--ink-3); stroke-width: 1.6; fill: none; }
+  @media (max-width: 760px) { .pitch-split { grid-template-columns: 1fr; } .pitch-split .illo { max-width: 320px; margin: 4px auto 0; } }
+
+  /* full-width expand body (no narrow centered column) */
+  .more-body p { max-width: none; }
+
+  /* core-idea: clear subsection headings + the E/F gap-bar illustration */
+  .ci-block { margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--line); }
+  .ci-block:first-of-type { border-top: none; padding-top: 4px; }
+  .ci-eyebrow { font-family: var(--font-mono); font-size: 15px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent-2); font-weight: 700; margin-bottom: 10px; }
+  .ci-head { font-size: clamp(18px, 2.2vw, 22px); font-weight: 660; color: var(--ink); margin: 0 0 8px; letter-spacing: -.012em; }
+  .ci-body { font-size: 14.5px; line-height: 1.6; color: var(--ink-2); margin: 0; max-width: none; }
+  .ci-body b { color: var(--ink); font-weight: 620; }
+  .ci-body .mono { color: var(--accent-2); }
+
+  /* F — the deterministic signature (all possible entries per dimension) */
+  .sig { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; margin-top: 18px; }
+  .sigchip { position: relative; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel-2); padding: 11px 14px 13px; }
+  .sigchip::before { content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 2px; border-radius: 2px; background: var(--accent-2); opacity: .7; }
+  .sigchip.mod::before { background: var(--ink-3); opacity: .5; }
+  .sigchip .sk { display: block; font-family: var(--font-mono); font-size: 10px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 8px; }
+  .svset { display: flex; flex-wrap: wrap; gap: 5px; }
+  .svset em { font-style: normal; font-family: var(--font-mono); font-size: 11.5px; font-weight: 600; color: var(--accent-2);
+    background: color-mix(in srgb, var(--accent-2) 12%, transparent); border: 1px solid color-mix(in srgb, var(--accent-2) 24%, transparent);
+    border-radius: 5px; padding: 2px 7px; }
+  .sigchip.mod .svset em { color: var(--ink-2); background: color-mix(in srgb, var(--ink-3) 13%, transparent); border-color: var(--line-2); }
+  .sig-note { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); margin: 12px 0 0; letter-spacing: .02em; }
+  .sig-note b { color: var(--ink-2); font-weight: 600; }
+
+  /* E — the four gap axes, mapped one-to-one onto the F dimensions they score */
+  .efmap { margin-top: 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .efgroup { display: grid; grid-template-columns: 1fr 40px auto; align-items: center; gap: 10px;
+    border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel-2); padding: 13px 15px; }
+  .fstack { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .fdimname { font-family: var(--font-mono); font-size: 12.5px; color: var(--ink-2); white-space: nowrap; }
+  .fdimname i { color: var(--ink-3); font-style: normal; }
+  .fdimname.modtag::before { content: "\25B8 "; color: var(--ink-3); }
+  .efarrow { position: relative; height: 2px; background: var(--line-2); border-radius: 2px; }
+  .efarrow::after { content: ""; position: absolute; right: -1px; top: -3px; width: 0; height: 0;
+    border: 4px solid transparent; border-left-color: var(--accent); border-right-width: 0; }
+  .eax { text-align: right; }
+  .eax .ek { font-family: var(--font-mono); font-size: 16px; font-weight: 700; color: var(--accent); letter-spacing: -.01em; }
+  .eax .esub { display: block; font-family: var(--font-mono); font-size: 9.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); margin-top: 2px; }
+  @media (max-width: 720px) { .efmap { grid-template-columns: 1fr; } }
+
+  /* footer */
+  footer { border-top: 1px solid var(--line); padding: 26px 0 40px; color: var(--ink-3); font-size: 12.5px; }
+  footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  footer .mono { color: var(--ink-3); }
+
+  /* reveal animation */
+  .reveal { opacity: 0; transform: translateY(14px); transition: opacity .6s ease, transform .6s cubic-bezier(.2,.7,.2,1); }
+  .reveal.in { opacity: 1; transform: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .reveal { opacity: 1 !important; transform: none !important; transition: none; }
+    * { scroll-behavior: auto !important; }
+    .draw-line { stroke-dashoffset: 0 !important; animation: none !important; }
+  }
+  html { scroll-behavior: smooth; }
+
+  /* responsive */
+  @media (max-width: 860px) {
+    .capture-grid { grid-template-columns: 1fr; }
+    .descend-grid { grid-template-columns: 1fr; }
+    .reps { grid-template-columns: 1fr; }
+    .gen-two { grid-template-columns: 1fr; }
+    .cosine-gate { padding: 8px 0; }
+    .run-row { grid-template-columns: 1fr auto; }
+    .run-row .run-note { grid-column: 1 / -1; }
+  }
+  @media (max-width: 620px) {
+    .wrap, .top-inner, .claims-inner { padding-left: 18px; padding-right: 18px; }
+    .status-strip { width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<div id="drop-overlay" aria-hidden="true">
+  <div class="drop-card">
+    <div class="ic">↓</div>
+    <div class="big">Drop <span class="mono">evidence_results.json</span></div>
+    <div class="small">Release to load a fresh run</div>
+  </div>
+</div>
+
+<header class="top">
+  <div class="top-inner">
+    <div class="brand">
+      <span class="glyph">E∕F</span>
+      <span class="name">Conductor-Delta</span>
+      <span class="sub">Evidence Console</span>
+    </div>
+    <div class="status-strip">
+      <div id="data-badge"></div>
+      <div class="status-item">
+        <span class="k">Measured</span>
+        <span class="v" id="stat-generated">—</span>
+      </div>
+      <div class="status-item">
+        <span class="k">Elapsed</span>
+        <span class="v" id="stat-elapsed">—</span>
+      </div>
+      <button class="btn" id="load-btn" type="button">Load JSON…</button>
+      <button class="theme-toggle" id="theme-btn" type="button" title="Toggle theme" aria-label="Toggle light/dark theme">◐</button>
+      <input type="file" id="file-input" accept="application/json,.json" style="display:none" />
+    </div>
+  </div>
+</header>
+
+<nav class="claims" aria-label="Sections">
+  <div class="claims-inner" id="claim-nav"></div>
+</nav>
+
+<section class="hero">
+  <div class="wrap hero-inner">
+    <div class="eyebrow">Self-improving planning + execution · deterministic descent</div>
+    <h1 class="title">Controlled Agent Collaboration</h1>
+  </div>
+</section>
+
+<section id="why" class="problem-frame">
+  <div class="wrap">
+
+    <!-- 01 · WHY -->
+    <div class="card pitch-card">
+      <div class="pitch-split">
+        <div class="pitch-text">
+          <div class="pitch-kicker">01 &middot; Why multi-agents</div>
+          <h2 class="pitch-headline">Modularity should buy reliability.</h2>
+          <p class="pitch-punch">Split a task across a retriever, a synthesizer, and a verifier &mdash; each one is
+            easier to build, test, and trust than a single monolithic prompt doing all three at once.</p>
+          <details class="more">
+            <summary>Expand</summary>
+            <div class="more-body">
+              <p>This is the same bet software engineering has always made: small, single-purpose parts are
+                predictable and debuggable in a way that one large opaque thing never is. When something fails, you
+                know <i>which</i> component failed and why.</p>
+              <p>So the promise of multi-agent systems isn't &ldquo;more agents&rdquo; &mdash; it's that decomposition
+                gives you back the reliability a single black-box LLM call throws away.</p>
+            </div>
+          </details>
+        </div>
+        <!-- illustration: layered pipeline — task -> parallel specialist lanes -> merged answer -->
+        <svg class="illo" viewBox="0 0 340 224" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <defs>
+            <marker id="ia" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="var(--line-2)"/>
+            </marker>
+          </defs>
+          <!-- task -> each lane -->
+          <path class="illo-edge" marker-end="url(#ia)" d="M66,112 C86,112 84,50 100,50"/>
+          <path class="illo-edge" marker-end="url(#ia)" d="M66,112 L100,112"/>
+          <path class="illo-edge" marker-end="url(#ia)" d="M66,112 C86,112 84,174 100,174"/>
+          <!-- each lane -> answer (merge) -->
+          <path class="illo-edge" marker-end="url(#ia)" d="M250,50 C266,50 264,112 274,112"/>
+          <path class="illo-edge" marker-end="url(#ia)" d="M250,112 L274,112"/>
+          <path class="illo-edge" marker-end="url(#ia)" d="M250,174 C266,174 264,112 274,112"/>
+          <!-- grouping brace around the parallel band -->
+          <path class="illo-brace" d="M92,28 C86,28 86,34 86,40 L86,102 C86,108 82,112 78,112 C82,112 86,116 86,122 L86,184 C86,190 86,196 92,196"/>
+          <!-- task -->
+          <rect class="illo-node accent" x="10" y="96" width="56" height="32" rx="9"/>
+          <text class="illo-label" x="38" y="116" text-anchor="middle" style="fill:var(--accent-2)">task</text>
+          <!-- three specialist lanes -->
+          <rect class="illo-node" x="100" y="32" width="150" height="36" rx="10"/>
+          <text class="illo-label" x="120" y="54" style="fill:var(--ink-2)">retriever</text>
+          <rect class="illo-node" x="100" y="94" width="150" height="36" rx="10"/>
+          <text class="illo-label" x="120" y="116" style="fill:var(--ink-2)">synthesizer</text>
+          <rect class="illo-node" x="100" y="156" width="150" height="36" rx="10"/>
+          <text class="illo-label" x="120" y="178" style="fill:var(--ink-2)">verifier</text>
+          <!-- merged answer -->
+          <rect class="illo-node accent" x="274" y="96" width="56" height="32" rx="9"/>
+          <text class="illo-label" x="302" y="116" text-anchor="middle" style="fill:var(--accent-2)">answer</text>
+          <!-- caption -->
+          <text class="illo-cap" x="175" y="216" text-anchor="middle">parallel specialists &middot; one merged voice</text>
+        </svg>
+      </div>
+    </div>
+
+    <!-- 02 · THE BREAK -->
+    <div class="card pitch-card">
+      <div class="pitch-kicker">02 &middot; What breaks</div>
+      <h2 class="pitch-headline">But the collaboration itself is ungoverned.</h2>
+      <p class="pitch-punch">Nothing defines what a correct handoff looks like, checks whether an agent stayed in its
+        lane, or predicts what the interaction will do before it has already happened. Three failure modes follow
+        directly:</p>
+      <div class="break-grid">
+        <div class="break-card">
+          <div class="break-name">Echoing</div>
+          <p class="break-line">Agents abandon their role and mirror their partner instead.</p>
+          <details class="mini"><summary>more</summary>
+            <div class="mini-body">Even after patching, a residual rate persists &mdash; and at network scale it
+              <b>compounds catastrophically</b>, not linearly. A small local rate becomes a large systemic one.</div>
+          </details>
+        </div>
+        <div class="break-card">
+          <div class="break-name">Cascade amplification</div>
+          <p class="break-line">One wrong node propagates into system-wide false consensus.</p>
+          <details class="mini"><summary>more</summary>
+            <div class="mini-body">Errors travel down the dependency graph. <b>Hub nodes</b> (high in-degree) are
+              catastrophically sensitive: one bad hub poisons everything downstream of it.</div>
+          </details>
+        </div>
+        <div class="break-card">
+          <div class="break-name">Role drift</div>
+          <p class="break-line">An agent's behavior quietly diverges from its assigned role mid-run.</p>
+          <details class="mini"><summary>more</summary>
+            <div class="mini-body">With nothing structural watching, the drift is invisible &mdash; there's no
+              mechanism to <b>detect it, let alone correct it,</b> before the answer ships.</div>
+          </details>
+        </div>
+      </div>
+    </div>
+
+    <!-- 03 · THE GAP -->
+    <div class="card pitch-card emphasis">
+      <div class="pitch-split">
+        <div class="pitch-text">
+          <div class="pitch-kicker">03 &middot; The gap</div>
+          <h2 class="pitch-headline">Structure the substrate, not just the agents.</h2>
+          <p class="pitch-punch">If we inject structure and predictable determinism into <b>how agents interact and
+            spawn each other</b> &mdash; not into the agents themselves &mdash; we get both worlds: the flexibility of
+            LLM agents with the reliability of an engineered system.</p>
+          <details class="more">
+            <summary>Why hasn't this been done</summary>
+            <div class="more-body">
+              <p>Almost every effort so far pushes on the <b>agents</b>: better prompts, bigger models, more elaborate
+                personas &mdash; making each individual smarter. The rest bolt on <b>post-hoc checks</b>: run the whole
+                thing, then judge the output after the damage is done.</p>
+              <p>Neither treats the <b>shape of the collaboration itself</b> &mdash; who talks to whom, in what order,
+                playing what role &mdash; as a first-class thing you can measure and govern. That's the empty lane.
+                The hard part isn't wanting structure; it's finding a representation of &ldquo;a good
+                collaboration&rdquo; that a machine can actually compute and act on. That representation is what the
+                rest of this is.</p>
+            </div>
+          </details>
+        </div>
+        <!-- illustration: ungoverned tangle -> governed structure -->
+        <svg class="illo" viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <defs>
+            <marker id="ga" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="var(--ink-3)"/>
+            </marker>
+          </defs>
+          <!-- LEFT: tangled, ungoverned web -->
+          <path class="illo-edge tangle" d="M28,44 C70,80 40,120 96,70"/>
+          <path class="illo-edge tangle" d="M96,40 C50,90 110,140 34,110"/>
+          <path class="illo-edge tangle" d="M30,110 C80,120 60,50 100,120"/>
+          <path class="illo-edge tangle" d="M100,70 C60,130 96,150 40,140"/>
+          <circle class="illo-node bad" cx="30" cy="44" r="10"/>
+          <circle class="illo-node bad" cx="98" cy="40" r="10"/>
+          <circle class="illo-node bad" cx="34" cy="112" r="10"/>
+          <circle class="illo-node bad" cx="100" cy="72" r="10"/>
+          <circle class="illo-node bad" cx="42" cy="142" r="10"/>
+          <circle class="illo-node bad" cx="102" cy="122" r="10"/>
+          <text class="illo-label" x="66" y="182" text-anchor="middle" style="fill:var(--bad)">ungoverned</text>
+
+          <!-- arrow -->
+          <path class="illo-arrow" marker-end="url(#ga)" d="M138,96 L172,96"/>
+
+          <!-- RIGHT: ordered, governed graph -->
+          <path class="illo-edge accent" d="M258,52 L226,86"/>
+          <path class="illo-edge accent" d="M258,52 L290,86"/>
+          <path class="illo-edge accent" d="M226,96 L226,124"/>
+          <path class="illo-edge accent" d="M290,96 L290,124"/>
+          <path class="illo-edge accent" d="M234,134 L282,134"/>
+          <circle class="illo-node accent" cx="258" cy="46" r="11"/>
+          <circle class="illo-node accent" cx="226" cy="90" r="11"/>
+          <circle class="illo-node accent" cx="290" cy="90" r="11"/>
+          <circle class="illo-node accent" cx="226" cy="134" r="11"/>
+          <circle class="illo-node accent" cx="290" cy="134" r="11"/>
+          <text class="illo-label" x="258" y="182" text-anchor="middle" style="fill:var(--accent-2)">governed</text>
+        </svg>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<main class="wrap">
+
+<section id="arch" class="panel reveal">
+  <div class="panel-head">
+    <div class="panel-eyebrow">
+      <span class="claim-no">Reference</span>
+      <span class="claim-name">The idea</span>
+      <span class="verdict-tag ref-tag"><span class="ic">&#9670;</span>ONE COORDINATE SYSTEM</span>
+    </div>
+    <h2 class="headline">A task's required shape, and the plan's distance from it</h2>
+    <p class="subcopy">One shared coordinate system underlies every claim that follows. The gap it exposes is what makes the rest possible.</p>
+  </div>
+
+  <div class="card arch-block headline-block emphasis">
+    <h3 class="block-title">Two objects, one coordinate system</h3>
+
+    <div class="ci-block">
+      <div class="ci-eyebrow">The task fingerprint &rarr; F</div>
+      <p class="ci-head">Every task has a required shape, fixed before a plan is built.</p>
+      <p class="ci-body">So we stop treating the task as one opaque embedding. We read it, deterministically, as an
+        <b>orthogonal signature</b> &mdash; independent structural dimensions, each with a closed set of possible values:</p>
+
+      <div class="sig">
+        <div class="sigchip"><span class="sk">information flow</span>
+          <span class="svset"><em>divergent</em><em>convergent</em><em>sequential</em><em>recursive</em></span></div>
+        <div class="sigchip"><span class="sk">epistemic stance</span>
+          <span class="svset"><em>retrieval</em><em>synthesis</em><em>generation</em><em>verification</em></span></div>
+        <div class="sigchip"><span class="sk">output contract</span>
+          <span class="svset"><em>artifact</em><em>comparison</em><em>verification</em><em>ranking</em></span></div>
+        <div class="sigchip"><span class="sk">decomposability</span>
+          <span class="svset"><em>independent</em><em>coupled</em></span></div>
+      </div>
+    </div>
+
+    <div class="ci-block">
+      <div class="ci-eyebrow">The fingerprint gap &rarr; E</div>
+      <p class="ci-head">Four gap axes, each transcribed directly onto the signature.</p>
+      <p class="ci-body">E has its own axes &mdash; <span class="mono">partition &middot; flow &middot; role &middot; scale</span>,
+        each in <span class="mono">[0,1]</span>. They are not a new vocabulary: each one scores the gap on <b>one part of
+        F</b>. Nothing is measured that F did not first require.</p>
+
+      <div class="efmap">
+        <div class="efgroup">
+          <div class="fstack"><span class="fdimname">information flow</span></div>
+          <span class="efarrow" aria-hidden="true"></span>
+          <div class="eax"><span class="ek">flow</span><span class="esub">gap axis</span></div>
+        </div>
+        <div class="efgroup">
+          <div class="fstack"><span class="fdimname">decomposability</span></div>
+          <span class="efarrow" aria-hidden="true"></span>
+          <div class="eax"><span class="ek">partition</span><span class="esub">gap axis</span></div>
+        </div>
+        <div class="efgroup">
+          <div class="fstack">
+            <span class="fdimname">epistemic stance</span>
+            <span class="fdimname">output contract</span>
+          </div>
+          <span class="efarrow" aria-hidden="true"></span>
+          <div class="eax"><span class="ek">role</span><span class="esub">gap axis</span></div>
+        </div>
+        <div class="efgroup">
+          <div class="fstack"><span class="fdimname">information flow <i>(depth)</i></span></div>
+          <span class="efarrow" aria-hidden="true"></span>
+          <div class="eax"><span class="ek">scale</span><span class="esub">gap axis</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="core-payoff">
+      <p><b>Why this is the whole game:</b> &ldquo;a good collaboration&rdquo; stops being a vibe and becomes a
+        measurable coordinate. Measure it, and you can improve it, guarantee it, and reuse it.</p>
+    </div>
+
+    <details class="more">
+      <summary>Content quality &amp; the verdict</summary>
+      <div class="more-body">
+        <p>A second, content-quality tensor rides alongside the structural four &mdash;
+          <span class="mono">groundedness &middot; relevance</span> (generation-side RAGAS, computed mechanically, no
+          LLM judge). The final verdict is <b>one uniform gate</b> over all six axes: every axis under threshold
+          &rarr; good; one axis barely over &rarr; mixed; otherwise &rarr; poor.</p>
+        <p>No weighted sum collapsing the axes into a single number &mdash; that's a deliberate stance. A weighted
+          sum lets a good axis mask a bad one; keeping the vector intact means the system always knows <i>which</i>
+          thing is wrong, which is exactly what makes targeted repair possible.</p>
+      </div>
+    </details>
+  </div>
+</section>
+
+<div id="claims-root-early"></div>
+
+<section id="flow" class="panel reveal">
+  <div class="panel-head">
+    <div class="panel-eyebrow">
+      <span class="claim-no">Reference</span>
+      <span class="claim-name">Mechanism</span>
+      <span class="verdict-tag ref-tag"><span class="ic">&#9670;</span>ONE RUN, END TO END</span>
+    </div>
+    <h2 class="headline">The same coordinate system, in motion</h2>
+    <p class="subcopy">How a single run moves from task to answer &mdash; and the modules that implement it.</p>
+  </div>
+
+  <div class="card arch-block headline-block">
+    <h3 class="block-title">How information flows through one run</h3>
+    <p class="block-copy">A task enters as raw text and leaves as a composed answer. In between, two loops give the
+      system its guarantees: an <b style="color:var(--accent-2)">inner repair loop</b> that descends on error, and
+      an <b>outer memory loop</b> that carries what worked forward to the next task of the same shape.</p>
+    <div class="flow-diagram">
+      <svg viewBox="0 0 940 432" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="fa1" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--line-2)"/>
+          </marker>
+          <marker id="fa2" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/>
+          </marker>
+          <marker id="fa3" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--ink-3)"/>
+          </marker>
+        </defs>
+
+        <!-- ======= the repair cycle: KERNEL and DELTA flank the CONDUCTOR, symmetric ======= -->
+        <text class="flow-label loop" x="500" y="30" text-anchor="middle">the repair cycle &mdash; spins until the fingerprint gap can&rsquo;t shrink further</text>
+        <!-- conductor -> kernel (left leg, up) -->
+        <path id="e_ck" class="flow-edge loop" marker-end="url(#fa2)" d="M460,182 C438,150 390,146 390,116"/>
+        <!-- kernel -> delta (across the top) -->
+        <path id="e_kd" class="flow-edge loop" marker-end="url(#fa2)" d="M456,87 C500,71 500,71 544,87"/>
+        <!-- delta -> conductor (right leg, down) -->
+        <path id="e_dc" class="flow-edge loop" marker-end="url(#fa2)" d="M610,116 C610,150 562,152 540,182"/>
+        <text class="flow-label loop" x="600" y="150" text-anchor="middle">fingerprint gap &rarr;</text>
+
+        <!-- ======= input spine (left) ======= -->
+        <path id="e_tr" class="flow-edge" marker-end="url(#fa1)" d="M128,225 L168,225"/>
+        <path id="e_rc" class="flow-edge" marker-end="url(#fa1)" d="M302,225 L416,225"/>
+
+        <!-- ======= output (right) — emitted BY the conductor on convergence ======= -->
+        <path id="e_ca" class="flow-edge" marker-end="url(#fa1)" d="M584,225 L698,225"/>
+        <text class="flow-label" x="641" y="216" text-anchor="middle">compose &rarr;</text>
+
+        <!-- ======= memory loop hangs below the CONDUCTOR ======= -->
+        <path id="e_mo" class="flow-edge mem" marker-end="url(#fa3)" d="M482,268 L482,342"/>
+        <path id="e_mi" class="flow-edge mem" marker-end="url(#fa3)" d="M518,342 L518,268"/>
+        <text class="flow-label" x="500" y="414" text-anchor="middle">persist best plan &nbsp;/&nbsp; warm-start next task of this shape &middot; memory</text>
+
+        <!-- ======= nodes ======= -->
+        <g class="flow-node"><rect x="20" y="197" width="108" height="56" rx="11"/>
+          <text class="ttl" x="74" y="222" text-anchor="middle">TASK</text>
+          <text class="sub" x="74" y="239" text-anchor="middle">raw text</text></g>
+
+        <g class="flow-node"><rect x="168" y="197" width="134" height="56" rx="11"/>
+          <text class="ttl" x="235" y="222" text-anchor="middle">RESEARCH</text>
+          <text class="sub" x="235" y="239" text-anchor="middle">intent &#8594; F</text></g>
+
+        <g class="flow-node"><rect x="324" y="58" width="132" height="58" rx="11"/>
+          <text class="ttl" x="390" y="84" text-anchor="middle">KERNEL</text>
+          <text class="sub" x="390" y="101" text-anchor="middle">execute DAG</text></g>
+
+        <g class="flow-node hub"><rect x="416" y="182" width="168" height="86" rx="13"/>
+          <text class="ttl" x="500" y="218" text-anchor="middle">CONDUCTOR</text>
+          <text class="sub" x="500" y="238" text-anchor="middle">plan &middot; repair &middot; compose</text></g>
+
+        <g class="flow-node emphasis"><rect x="544" y="58" width="132" height="58" rx="11"/>
+          <text class="ttl" x="610" y="84" text-anchor="middle">DELTA</text>
+          <text class="sub" x="610" y="101" text-anchor="middle">measure gap</text></g>
+
+        <g class="flow-node"><rect x="698" y="197" width="140" height="56" rx="11"/>
+          <text class="ttl" x="768" y="222" text-anchor="middle">ANSWER</text>
+          <text class="sub" x="768" y="239" text-anchor="middle">RunResult</text></g>
+
+        <g class="flow-node store"><rect x="410" y="342" width="180" height="50" rx="11"/>
+          <text class="ttl" x="500" y="366" text-anchor="middle">F-KEYED STORE</text>
+          <text class="sub" x="500" y="382" text-anchor="middle">species &#8594; best plan</text></g>
+
+        <!-- ======= travelling packets ======= -->
+        <circle class="packet" r="4"><animateMotion dur="3.6s" begin="0s"   repeatCount="indefinite" keyPoints="0;0;1;1" keyTimes="0;0.15;0.4;1" calcMode="linear"><mpath href="#e_tr"/></animateMotion></circle>
+        <circle class="packet" r="4"><animateMotion dur="3.6s" begin="0.5s" repeatCount="indefinite" keyPoints="0;0;1;1" keyTimes="0;0.35;0.6;1" calcMode="linear"><mpath href="#e_rc"/></animateMotion></circle>
+        <circle class="packet" r="4.5"><animateMotion dur="3s" begin="0s"   repeatCount="indefinite" calcMode="linear"><mpath href="#e_ck"/></animateMotion></circle>
+        <circle class="packet" r="4.5"><animateMotion dur="3s" begin="1s"   repeatCount="indefinite" calcMode="linear"><mpath href="#e_kd"/></animateMotion></circle>
+        <circle class="packet" r="4.5"><animateMotion dur="3s" begin="2s"   repeatCount="indefinite" calcMode="linear"><mpath href="#e_dc"/></animateMotion></circle>
+        <circle class="packet" r="4"><animateMotion dur="3.6s" begin="1.6s" repeatCount="indefinite" keyPoints="0;0;1;1" keyTimes="0;0.55;0.95;1" calcMode="linear"><mpath href="#e_ca"/></animateMotion></circle>
+        <circle class="packet mem-dot" r="3"><animateMotion dur="5s" begin="0.5s" repeatCount="indefinite" keyPoints="0;0;1;1" keyTimes="0;0.4;0.7;1" calcMode="linear"><mpath href="#e_mo"/></animateMotion></circle>
+      </svg>
+    </div>
+    <div class="flow-legend">
+      <span class="lg"><span class="swatch"></span>data flow</span>
+      <span class="lg"><span class="swatch loop"></span>inner repair loop (DESCEND)</span>
+      <span class="lg"><span class="swatch mem"></span>outer memory loop (REUSE)</span>
+    </div>
+
+    <details class="more">
+      <summary>Step-by-step</summary>
+      <div class="more-body">
+        <p><b>1&ndash;2 &middot; Classify.</b> <span class="mono">RESEARCH.clarify()</span> turns raw intent into the
+          structural fingerprint; <span class="mono">compute_required()</span> derives F. Both deterministic.</p>
+        <p><b>3&ndash;6 &middot; Plan &amp; run (inner loop).</b> The conductor builds a DAG &mdash; warm-started from the
+          store if this shape has been seen before. The KERNEL executes it; DELTA measures E, names the worst axis,
+          and either applies a deterministic graph repair or asks the conductor to replan. The delivered plan updates only
+          under <b>PRESERVE</b> &mdash; it can hold still or improve, never regress.</p>
+        <p><b>7&ndash;8 &middot; Deliver.</b> <span class="mono">compose()</span> writes one coherent answer;
+          Q-factor (groundedness, relevance) folds into the final verdict.</p>
+        <p><b>Outer loop &middot; learn.</b> The best plan for this structural species persists to the F-keyed store,
+          so the next task of the same shape starts warm instead of cold.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="card arch-block">
+    <h3 class="block-title">Module map <span class="block-sub">~6.8k LOC across 24 modules</span></h3>
+
+    <details class="dgroup"><summary>Orchestration &amp; control <span class="dcount">3 modules</span></summary>
+      <div class="dgroup-body"><table class="modmap">
+        <tr><td class="mod">orchestrator.py</td><td class="loc">536</td><td class="role">The <span class="mono">run()</span> pipeline above; <span class="mono">RunResult</span>; wires every subsystem; owns the directive loop and best-plan tracking.</td></tr>
+        <tr><td class="mod">delta.py</td><td class="loc">803</td><td class="role">The Delta agent: audits a plan/trace, computes E, owns the Descent object, emits directives; produces <span class="mono">DeltaReport</span>.</td></tr>
+        <tr><td class="mod">descent.py</td><td class="loc">593</td><td class="role">Coordinate descent + the PRESERVE guarantee. Incumbent update with uphill rejection; maintains the traces the demo reads.</td></tr>
+      </table></div>
+    </details>
+
+    <details class="dgroup"><summary>Structure &mdash; F and E <span class="dcount">4 modules</span></summary>
+      <div class="dgroup-body"><table class="modmap">
+        <tr><td class="mod">schemas.py</td><td class="loc">399</td><td class="role">Every core dataclass: <span class="mono">TaskFingerprint, DAG, Node, Roles, Why, ExecutionTrace</span>, plus the agent registry.</td></tr>
+        <tr><td class="mod">ef.py</td><td class="loc">284</td><td class="role"><span class="mono">RequiredStructure</span> (F), <span class="mono">compute_required</span>, <span class="mono">graph_signature</span>, the four per-axis error functions, the verdict gates.</td></tr>
+        <tr><td class="mod">error_tensor.py</td><td class="loc">308</td><td class="role">Legacy execution tensor (drift/echo/cascade/role/resource) + hysteresis + violation ranking; still used for escalation continuity.</td></tr>
+        <tr><td class="mod">role_features.py</td><td class="loc">114</td><td class="role">Behavioral profile of a node's output vs. per-role bands; backs the role axis.</td></tr>
+      </table></div>
+    </details>
+
+    <details class="dgroup"><summary>Planning &amp; execution <span class="dcount">6 modules</span></summary>
+      <div class="dgroup-body"><table class="modmap">
+        <tr><td class="mod">research.py</td><td class="loc">254</td><td class="role">The Research agent: a parser, not a learner &mdash; raw intent &rarr; (fingerprint, specifics).</td></tr>
+        <tr><td class="mod">ceo.py</td><td class="loc">433</td><td class="role">The conductor / planner: fingerprint &rarr; handbook &rarr; DAG; also <span class="mono">replan</span>, <span class="mono">force_verifier</span>, and <span class="mono">compose</span> (the single voice).</td></tr>
+        <tr><td class="mod">kernel.py</td><td class="loc">203</td><td class="role">The execution kernel (KAIJU-inspired); runs the DAG, flows outputs downstream.</td></tr>
+        <tr><td class="mod">grounding.py</td><td class="loc">143</td><td class="role">Retriever nodes call <span class="mono">retrieve()</span> instead of hallucinating; backend-agnostic seam.</td></tr>
+        <tr><td class="mod">llm.py</td><td class="loc">204</td><td class="role">vLLM OpenAI-compatible client (self-hosted Qwen); defensive JSON extraction.</td></tr>
+        <tr><td class="mod">embeddings.py</td><td class="loc">31</td><td class="role"><span class="mono">embed()</span> / <span class="mono">cosine()</span> over a small sentence-transformer.</td></tr>
+      </table></div>
+    </details>
+
+    <details class="dgroup"><summary>Repair repertoire <span class="dcount">2 modules</span></summary>
+      <div class="dgroup-body"><table class="modmap">
+        <tr><td class="mod">graph_ops.py</td><td class="loc">688</td><td class="role">The 10 pure graph transforms + <span class="mono">DET_OPS</span> registry + <span class="mono">apply_move</span> routing.</td></tr>
+        <tr><td class="mod">moves.py</td><td class="loc">228</td><td class="role">Table lookup that picks which edit to attempt from (worst axis, F, signature, history). What makes descent deterministic.</td></tr>
+      </table></div>
+    </details>
+
+    <details class="dgroup"><summary>Learning &amp; memory <span class="dcount">8 modules</span></summary>
+      <div class="dgroup-body"><table class="modmap">
+        <tr><td class="mod">ef_store.py</td><td class="loc">229</td><td class="role">F-keyed case memory; writes the per-species best plan &mdash; the E&ndash;F coupling made persistent.</td></tr>
+        <tr><td class="mod">warmstart.py</td><td class="loc">74</td><td class="role">The read side of best-plan; reconstructs a runnable DAG.</td></tr>
+        <tr><td class="mod">handbook.py</td><td class="loc">132</td><td class="role">Topology/depth vote tallies with symmetric decay; the conductor's prior.</td></tr>
+        <tr><td class="mod">escalation.py</td><td class="loc">246</td><td class="role">Case-based escalation: nearest precedent by weighted cosine, role-gated, LLM fallback below floor.</td></tr>
+        <tr><td class="mod">bootstrap.py</td><td class="loc">173</td><td class="role">Cold-start seeding so run 1 isn't empty.</td></tr>
+        <tr><td class="mod">reflection.py</td><td class="loc">93</td><td class="role">Periodic between-run reflection.</td></tr>
+        <tr><td class="mod">runlog.py</td><td class="loc">167</td><td class="role">Append-only JSONL per-run record.</td></tr>
+        <tr><td class="mod">quality.py</td><td class="loc">130</td><td class="role">The Q-factor (groundedness, relevance), mechanical, no LLM judge.</td></tr>
+      </table></div>
+    </details>
+
+    <details class="dgroup"><summary>Config <span class="dcount">1 module</span></summary>
+      <div class="dgroup-body"><table class="modmap">
+        <tr><td class="mod">config.py</td><td class="loc">197</td><td class="role">All thresholds and knobs.</td></tr>
+      </table></div>
+    </details>
+  </div>
+</section>
+
+<div id="claims-root-late"></div>
+
+<section id="methodology" class="panel reveal">
+  <div class="panel-head">
+    <div class="panel-eyebrow">
+      <span class="claim-no">Reference</span>
+      <span class="claim-name">Methodology</span>
+      <span class="verdict-tag ref-tag"><span class="ic">&#9670;</span>ABOUT EVIDENCE.PY</span>
+    </div>
+    <h2 class="headline">Where these numbers come from</h2>
+    <p class="subcopy">Every claim above is read from a JSON file this script writes &mdash; nothing on this page is invented or hand-tuned for the demo.</p>
+  </div>
+
+  <div class="card arch-block">
+    <h3 class="block-title">Running the battery</h3>
+    <p class="block-copy"><span class="mono">scripts/evidence.py</span> prints a live, human-readable trace of all 5 claims, then writes <span class="mono">scripts/evidence_results.json</span> &mdash; the machine-readable payload this page renders. Re-run it any time to refresh the data; drop the resulting file onto this page to load it.</p>
+    <div class="codeblock"><span class="cmt"># full evidence battery &mdash; (re)writes scripts/evidence_results.json</span>
+python3 -u scripts/evidence.py
+
+<span class="cmt"># one task, programmatically</span>
+python3 -c "from ceo_delta import Orchestrator, Config; \
+r = Orchestrator(Config(), workdir='.demo').run('Explain how a C compiler works'); \
+print(r.report.verdict, r.report.ef_tensor)"</div>
+    <p class="block-copy">The richest live object is <span class="mono">RunResult</span> (returned by <span class="mono">Orchestrator.run()</span>): <span class="mono">answer, report.verdict, report.ef_tensor, report.q_tensor, report.required_structure, iterations, ef_trace, ef_incumbent_trace</span> (the monotone curve), <span class="mono">ef_move_log, dag.nodes</span>.</p>
+  </div>
+
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Conductor-Delta · research prototype — measured evidence, not marketing.</span>
+    <span class="mono" id="foot-meta">—</span>
+  </div>
+</footer>
+
+<script>
+/* ============================================================
+   Embedded SAMPLE data — renders on first open.
+   A dropped/loaded evidence_results.json (identical schema)
+   replaces it live via render().
+   ============================================================ */
+const SAMPLE_DATA = {
+  "_README": "ILLUSTRATIVE SAMPLE for UI development ONLY. Mirrors an actual clean measured run (all 5 claims PASS), embedded so the page shows something representative before you drop in a fresh scripts/evidence_results.json.",
+  "generated_at": 1783399527.717,
+  "elapsed_s": 940.0,
+  "thresholds": { "partition": 0.70, "flow": 0.25, "role": 0.35, "scale": 0.34 },
+  "claims": [
+    {
+      "id": "1_capture", "name": "CAPTURE", "passed": true,
+      "headline": "3 distinct species across 3 task-types",
+      "payload": { "tasks": [
+        { "task": "Explain how a modern C compiler transforms C source into an executable.",
+          "species": "information_flow:sequential epistemic_stance:synthesis output_contract:artifact decomposability:coupled" },
+        { "task": "Compare Python, Rust, and Go across performance, safety, and concurrency.",
+          "species": "information_flow:divergent epistemic_stance:synthesis output_contract:comparison decomposability:independent" },
+        { "task": "Given three job offers, recommend the best one and justify the tradeoffs.",
+          "species": "information_flow:convergent epistemic_stance:synthesis output_contract:comparison decomposability:coupled" }
+      ] }
+    },
+    {
+      "id": "2_generalize", "name": "GENERALIZE", "passed": true,
+      "headline": "cosine=0.269 (unrelated) yet same class=true",
+      "payload": {
+        "task_a": "Explain the entire water cycle from evaporation to groundwater recharge.",
+        "task_b": "Describe how an HTTP request travels from a browser to a server and back.",
+        "text_cosine": 0.269,
+        "species_a": "information_flow:sequential epistemic_stance:synthesis output_contract:artifact decomposability:coupled",
+        "species_b": "information_flow:sequential epistemic_stance:synthesis output_contract:artifact decomposability:coupled",
+        "same_class": true
+      }
+    },
+    {
+      "id": "3_descend", "name": "DESCEND", "passed": true,
+      "headline": "monotone=true, 0 deterministic repairs, 0 bad moves rejected, worst-excess +0.194→-0.250",
+      "payload": {
+        "task": "Plan a trip from Bangalore to Bangkok under 60k using current fares.",
+        "verdict": "good", "iterations": 2,
+        "incumbent_trace": [
+          { "partition": 0.894, "flow": 0.0, "role": 0.4153, "scale": 0.0 },
+          { "partition": 0.2979, "flow": 0.0, "role": 0.0962, "scale": 0.0 }
+        ],
+        "worst_excess_curve": [0.194, -0.25],
+        "raw_trace": [
+          { "partition": 0.894, "flow": 0.0, "role": 0.4153, "scale": 0.0 },
+          { "partition": 0.2979, "flow": 0.0, "role": 0.0962, "scale": 0.0 }
+        ],
+        "move_log": [
+          { "axis": "partition", "move": "partition.differentiate", "before": 0.894, "after": 0.298, "improved": true }
+        ],
+        "monotone": true, "improved": true,
+        "deterministic_repairs": [],
+        "llm_rejected": []
+      }
+    },
+    {
+      "id": "4_reuse", "name": "REUSE", "passed": true,
+      "headline": "run1 cold, run2 warm=true iters=1",
+      "payload": {
+        "task": "Explain how a modern C compiler transforms C source into an executable.",
+        "run1": { "verdict": "good", "iters": 1, "warm": false },
+        "run2": { "verdict": "good", "iters": 1, "warm": true }
+      }
+    }
+  ]
+};
+
+const DEFAULT_THRESHOLDS = { partition: 0.70, flow: 0.25, role: 0.35, scale: 0.34 };
+const AXES = ["partition", "flow", "role", "scale"];
+
+/* ---------- helpers ---------- */
+const $ = (sel, root=document) => root.querySelector(sel);
+const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+const esc = s => String(s == null ? "" : s);
+const num = (v, d=2) => (typeof v === "number" && isFinite(v)) ? v.toFixed(d) : "—";
+
+function fmtTimestamp(epoch) {
+  if (typeof epoch !== "number" || !isFinite(epoch)) return "—";
+  const ms = epoch > 1e12 ? epoch : epoch * 1000; // tolerate s or ms
+  try {
+    return new Date(ms).toLocaleString(undefined,
+      { year:"numeric", month:"short", day:"numeric", hour:"2-digit", minute:"2-digit" });
+  } catch { return "—"; }
+}
+function fmtElapsed(s) {
+  if (typeof s !== "number" || !isFinite(s)) return "—";
+  if (s < 90) return s.toFixed(1) + "s";
+  const m = Math.floor(s / 60), r = Math.round(s % 60);
+  return m + "m " + String(r).padStart(2,"0") + "s";
+}
+function getClaim(data, id) { return (data.claims || []).find(c => c && c.id === id) || null; }
+function parseSpecies(str) {
+  const out = {};
+  esc(str).split(/\s+/).forEach(tok => {
+    const i = tok.indexOf(":");
+    if (i > 0) out[tok.slice(0, i)] = tok.slice(i + 1);
+  });
+  return out;
+}
+function cellState(axis, value, thr) {
+  if (typeof value !== "number") return "zero";
+  if (Math.abs(value) < 1e-9) return "zero";
+  const t = thr[axis];
+  if (typeof t !== "number") return "zero";
+  return value > t ? "over" : "under";
+}
+function worstExcess(ef, thr) {
+  let w = -Infinity;
+  AXES.forEach(a => {
+    if (typeof ef[a] === "number" && typeof thr[a] === "number") w = Math.max(w, ef[a] - thr[a]);
+  });
+  return w === -Infinity ? 0 : w;
+}
+
+/* ---------- master render ---------- */
+function render(data) {
+  const thr = Object.assign({}, DEFAULT_THRESHOLDS, data.thresholds || {});
+  const isSample = !!data._README;
+
+  // status strip
+  const badge = $("#data-badge");
+  badge.innerHTML = "";
+  badge.appendChild(el("span", "badge " + (isSample ? "sample" : "live"), isSample ? "Sample data" : "Live run"));
+  $("#stat-generated").textContent = fmtTimestamp(data.generated_at);
+  $("#stat-elapsed").textContent = fmtElapsed(data.elapsed_s);
+  $("#foot-meta").textContent = (isSample ? "sample · " : "measured · ") + fmtTimestamp(data.generated_at);
+
+  // nav — reference + claim pills in reading order (problem → idea → capture/
+  // generalize → flow → descend/reuse → method), so it spans the whole deck.
+  const claims = data.claims || [];
+  const nav = $("#claim-nav");
+  nav.innerHTML = "";
+  const refPill = (href, label) => {
+    const a = el("a", "navpill ref");
+    a.href = href;
+    a.innerHTML = `<span class="n">&#9670;</span>${esc(label)}`;
+    return a;
+  };
+  const claimPill = (c, i) => {
+    const a = el("a", "navpill");
+    a.href = "#" + esc(c.id);
+    a.innerHTML = `<span class="n">${String(i+1).padStart(2,"0")}</span>${esc(c.name)}<span class="dot ${c.passed?"":"fail"}"></span>`;
+    return a;
+  };
+  nav.appendChild(refPill("#why", "Why"));
+  nav.appendChild(refPill("#arch", "The idea"));
+  if (claims[0]) nav.appendChild(claimPill(claims[0], 0));
+  if (claims[1]) nav.appendChild(claimPill(claims[1], 1));
+  nav.appendChild(refPill("#flow", "Flow"));
+  claims.slice(2).forEach((c, k) => nav.appendChild(claimPill(c, k + 2)));
+  nav.appendChild(refPill("#methodology", "Method"));
+
+  // panels — claims 1–2 sit before the flow/module section, 3+ after it, so the
+  // deck reads problem → payoff → resolution.
+  const rootEarly = $("#claims-root-early");
+  const rootLate = $("#claims-root-late");
+  rootEarly.innerHTML = ""; rootLate.innerHTML = "";
+  const renderers = {
+    "1_capture": renderCapture, "2_generalize": renderGeneralize,
+    "3_descend": renderDescend, "4_reuse": renderReuse, "5_converge": renderConverge
+  };
+  claims.forEach((c, i) => {
+    const section = el("section", "panel reveal");
+    section.id = esc(c.id);
+    section.appendChild(panelHead(c, i));
+    try {
+      const fn = renderers[c.id];
+      const body = fn ? fn(c.payload || {}, thr, c) : renderFallback(c);
+      if (body) section.appendChild(body);
+    } catch (err) {
+      section.appendChild(el("p", "subcopy", "This claim could not be rendered from the loaded data."));
+      console.error("render error for", c.id, err);
+    }
+    (i < 2 ? rootEarly : rootLate).appendChild(section);
+  });
+
+  wireReveal();
+  wireScrollspy();
+}
+
+function panelHead(c, i) {
+  const head = el("div", "panel-head");
+  const eye = el("div", "panel-eyebrow");
+  eye.appendChild(el("span", "claim-no", "Claim " + String(i+1).padStart(2,"0")));
+  eye.appendChild(el("span", "claim-name", esc(c.name)));
+  const vt = el("span", "verdict-tag " + (c.passed ? "pass" : "fail"));
+  vt.innerHTML = `<span class="ic">${c.passed ? "✓" : "✕"}</span>${c.passed ? "PASS" : "CHECK"}`;
+  eye.appendChild(vt);
+  head.appendChild(eye);
+  head.appendChild(el("h2", "headline", esc(c.headline)));
+  return head;
+}
+
+function renderFallback(c) {
+  const card = el("div", "card");
+  card.style.padding = "20px";
+  card.appendChild(el("pre", "mono", JSON.stringify(c.payload || {}, null, 2)));
+  return card;
+}
+
+/* ---------- 1 · CAPTURE ---------- */
+function renderCapture(p) {
+  const frag = document.createDocumentFragment();
+  frag.appendChild(el("p", "subcopy",
+    "Three sentences, three task-types, no shared keywords. Each parses deterministically into a species. The axes decide the shape — not the words."));
+  const grid = el("div", "capture-grid");
+  (p.tasks || []).forEach(t => {
+    const card = el("div", "card task-card");
+    card.appendChild(el("div", "qline", esc(t.task)));
+    const sp = parseSpecies(t.species);
+    const spWrap = el("div", "species");
+    [["information_flow","flow"],["epistemic_stance","stance"],["output_contract","contract"],["decomposability","decomp"]]
+      .forEach(([key,label]) => {
+        const row = el("div", "sattr");
+        row.appendChild(el("span", "lab", label));
+        row.appendChild(el("span", "val", esc(sp[key] || "—")));
+        spWrap.appendChild(row);
+      });
+    card.appendChild(spWrap);
+    grid.appendChild(card);
+  });
+  frag.appendChild(grid);
+  return frag;
+}
+
+/* ---------- 2 · GENERALIZE (climax) ---------- */
+function renderGeneralize(p) {
+  const frag = document.createDocumentFragment();
+  frag.appendChild(el("p", "subcopy",
+    "Two sentences, almost nothing in common on the surface. Structure-space ignores phrasing. Both collapse to one identical species."));
+
+  const card = el("div", "card gen-stage");
+  const two = el("div", "gen-two");
+
+  const sA = el("div", "gen-sent");
+  sA.innerHTML = `<span class="tag">Task A</span><span class="txt">${esc(p.task_a)}</span>`;
+  const sB = el("div", "gen-sent");
+  sB.innerHTML = `<span class="tag">Task B</span><span class="txt">${esc(p.task_b)}</span>`;
+
+  const gate = el("div", "cosine-gate");
+  const cos = typeof p.text_cosine === "number" ? p.text_cosine : null;
+  gate.appendChild(el("span", "cosine-lab", "text cosine"));
+  gate.appendChild(el("span", "cosine-num", cos != null ? cos.toFixed(2) : "—"));
+  const bar = el("div", "cosine-bar");
+  const fill = el("i"); fill.style.width = cos != null ? Math.max(2, Math.min(100, cos*100)) + "%" : "0%";
+  bar.appendChild(fill); gate.appendChild(bar);
+  gate.appendChild(el("span", "cosine-verdict", cos != null && cos < 0.5 ? "surface-unrelated" : "surface-similar"));
+
+  two.appendChild(sA); two.appendChild(gate); two.appendChild(sB);
+  card.appendChild(two);
+
+  const collapse = el("div", "collapse-row");
+  const arrow = el("div", "collapse-arrow");
+  arrow.innerHTML = `<span class="ln"></span>same fingerprint<span class="ln r"></span>`;
+  collapse.appendChild(arrow);
+
+  const uni = el("div", "unified-species");
+  uni.appendChild(el("span", "u-lab", (p.same_class ? "one species" : "distinct species") + " →"));
+  const sp = parseSpecies(p.species_a);
+  AXES.forEach(() => {}); // species keys below
+  [["information_flow","flow"],["epistemic_stance","stance"],["output_contract","contract"],["decomposability","decomp"]]
+    .forEach(([key,label]) => {
+      const chip = el("span", "uchip");
+      chip.innerHTML = `${label} <b>${esc(sp[key] || "—")}</b>`;
+      uni.appendChild(chip);
+    });
+  collapse.appendChild(uni);
+  card.appendChild(collapse);
+  frag.appendChild(card);
+  return frag;
+}
+
+/* ---------- 3 · DESCEND (proof) ---------- */
+function renderDescend(p, thr) {
+  const frag = document.createDocumentFragment();
+  frag.appendChild(el("p", "subcopy",
+    "Coordinate descent on the worst over-threshold axis. A good repair is kept; a worse re-roll is measured and rejected. So the delivered plan's worst-axis excess only ever descends."));
+
+  const grid = el("div", "descend-grid");
+
+  // left: chart
+  const chartCard = el("div", "card chart-card");
+  chartCard.appendChild(el("div", "chart-title", "Worst-axis excess per incumbent"));
+  chartCard.appendChild(el("div", "chart-sub", "y = 0 is the satisfying-region boundary · lower is better"));
+  const holder = el("div", "chart-holder");
+  holder.innerHTML = descentSVG(Array.isArray(p.worst_excess_curve) ? p.worst_excess_curve : []);
+  chartCard.appendChild(holder);
+  grid.appendChild(chartCard);
+
+  // right: tiles + move log
+  const right = el("div");
+  const tiles = el("div", "tiles");
+  tiles.appendChild(statTile("Monotone", p.monotone ? "yes" : "no", p.monotone ? "good" : "bad"));
+  tiles.appendChild(statTile("Verdict", esc(p.verdict || "—"), verdictClass(p.verdict)));
+  tiles.appendChild(statTile("Iterations", p.iterations != null ? String(p.iterations) : "—", ""));
+  const moveLog = p.move_log || [];
+  const nKept = moveLog.filter(m => m.improved === true).length;
+  const nRej = moveLog.filter(m => m.improved === false).length;
+  tiles.appendChild(statTile("Moves kept / rejected", nKept + " / " + nRej, ""));
+  right.appendChild(tiles);
+
+  const log = el("div", "movelog");
+  (p.move_log || []).forEach(m => {
+    const kept = m.improved === true;
+    const row = el("div", "move " + (kept ? "kept" : "rejected"));
+    const ic = el("div", "mic"); ic.textContent = kept ? "✓" : "✕";
+    const mid = el("div");
+    mid.innerHTML = `<div class="mid">${esc(m.move)}</div><div class="maxis">${esc(m.axis)} axis</div>`;
+    const delta = el("div", "mdelta");
+    delta.innerHTML = `${num(m.before)} <span>→</span> <span class="to">${num(m.after)}</span>`;
+    row.appendChild(ic); row.appendChild(mid); row.appendChild(delta);
+    log.appendChild(row);
+  });
+  right.appendChild(log);
+  grid.appendChild(right);
+  frag.appendChild(grid);
+
+  // incumbent tensor heat-strip
+  const inc = Array.isArray(p.incumbent_trace) ? p.incumbent_trace : [];
+  if (inc.length) {
+    const wrap = el("div", "tensor-wrap");
+    const cap = el("div", "chart-sub");
+    cap.style.margin = "0 0 8px"; cap.textContent = "Incumbent tensor per iteration — green under threshold, red over";
+    wrap.appendChild(cap);
+    const table = el("table", "tensor");
+    const thead = el("tr");
+    thead.appendChild(el("th", "rowlab", "iter"));
+    AXES.forEach(a => thead.appendChild(el("th", null, a)));
+    table.appendChild(thead);
+    inc.forEach((ef, i) => {
+      const tr = el("tr");
+      tr.appendChild(el("td", "rowlab", "#" + i));
+      AXES.forEach(a => {
+        const v = ef[a];
+        const td = el("td", "cell " + cellState(a, v, thr), typeof v === "number" ? v.toFixed(2) : "—");
+        tr.appendChild(td);
+      });
+      table.appendChild(tr);
+    });
+    wrap.appendChild(table);
+    frag.appendChild(wrap);
+  }
+  return frag;
+}
+
+function statTile(k, v, cls) {
+  const t = el("div", "tile");
+  t.appendChild(el("div", "k", k));
+  t.appendChild(el("div", "v " + (cls || ""), v));
+  return t;
+}
+function verdictClass(v) { return v === "good" ? "good" : v === "mixed" ? "warn" : v === "poor" ? "bad" : ""; }
+
+function descentSVG(curve) {
+  const W = 460, H = 250, m = { t: 18, r: 18, b: 34, l: 44 };
+  const iw = W - m.l - m.r, ih = H - m.t - m.b;
+  if (!curve.length) return `<svg class="descent" viewBox="0 0 ${W} ${H}" role="img" aria-label="no descent data"></svg>`;
+
+  const vals = curve.filter(v => typeof v === "number" && isFinite(v));
+  const dataMax = Math.max(...vals, 0.02);
+  const dataMin = Math.min(...vals, 0);
+  const yMax = dataMax * 1.18;
+  const yMin = Math.min(dataMin - 0.02, -0.05);
+  const n = curve.length;
+  const x = i => m.l + (n === 1 ? iw/2 : (i / (n - 1)) * iw);
+  const y = v => m.t + (1 - (v - yMin) / (yMax - yMin)) * ih;
+
+  const y0 = y(0);
+  const cssId = "g" + Math.random().toString(36).slice(2, 8);
+
+  // gridlines (excess ticks)
+  let grid = "";
+  const ticks = niceTicks(yMin, yMax, 4);
+  ticks.forEach(tk => {
+    const yy = y(tk).toFixed(1);
+    grid += `<line x1="${m.l}" x2="${W-m.r}" y1="${yy}" y2="${yy}" stroke="var(--line)" stroke-width="1"/>`;
+    grid += `<text x="${m.l-8}" y="${(y(tk)+3.5).toFixed(1)}" text-anchor="end" font-size="10" font-family="var(--font-mono)" fill="var(--ink-3)">${(tk>0?"+":"")+tk.toFixed(2)}</text>`;
+  });
+
+  // satisfying region (excess <= 0) shaded down to bottom
+  const regionTop = Math.min(y0, m.t + ih);
+  const region = y0 < m.t + ih
+    ? `<rect x="${m.l}" y="${regionTop.toFixed(1)}" width="${iw}" height="${(m.t+ih-regionTop).toFixed(1)}" fill="var(--region)"/>
+       <text x="${W-m.r-6}" y="${Math.min(m.t+ih-8, y0+16).toFixed(1)}" text-anchor="end" font-size="10" font-family="var(--font-mono)" fill="var(--good)">satisfying region</text>`
+    : "";
+
+  // boundary line at 0
+  const boundary = `<line x1="${m.l}" x2="${W-m.r}" y1="${y0.toFixed(1)}" y2="${y0.toFixed(1)}" stroke="var(--good)" stroke-width="1.5" stroke-dasharray="5 4" opacity="0.8"/>`;
+
+  // area + line
+  const pts = curve.map((v, i) => [x(i), y(typeof v==="number"?v:0)]);
+  const linePath = pts.map((pt, i) => (i===0?"M":"L") + pt[0].toFixed(1) + " " + pt[1].toFixed(1)).join(" ");
+  const areaPath = linePath + ` L ${pts[pts.length-1][0].toFixed(1)} ${(m.t+ih).toFixed(1)} L ${pts[0][0].toFixed(1)} ${(m.t+ih).toFixed(1)} Z`;
+
+  const len = pathLen(pts);
+  const circles = pts.map((pt, i) => {
+    const last = i === pts.length - 1;
+    const r = last ? 5.5 : 4;
+    const ring = last ? `<circle cx="${pt[0].toFixed(1)}" cy="${pt[1].toFixed(1)}" r="9" fill="none" stroke="var(--accent)" stroke-width="1.5" opacity="0.35"/>` : "";
+    const v = curve[i];
+    // keep endpoint value labels inside the plot: anchor start on the far left, end on the far right
+    const anchor = pt[0] < m.l + iw*0.12 ? "start" : pt[0] > m.l + iw*0.88 ? "end" : "middle";
+    const label = (i===0 || last) && typeof v === "number"
+      ? `<text x="${pt[0].toFixed(1)}" y="${(pt[1]-12).toFixed(1)}" text-anchor="${anchor}" font-size="11" font-weight="600" font-family="var(--font-mono)" fill="var(--ink)">${(v>0?"+":"")+v.toFixed(3)}</text>`
+      : "";
+    return ring + `<circle cx="${pt[0].toFixed(1)}" cy="${pt[1].toFixed(1)}" r="${r}" fill="var(--accent)" stroke="var(--panel)" stroke-width="1.5"/>` + label;
+  }).join("");
+
+  // x labels
+  let xlab = "";
+  curve.forEach((v, i) => {
+    xlab += `<text x="${x(i).toFixed(1)}" y="${(m.t+ih+18).toFixed(1)}" text-anchor="middle" font-size="10" font-family="var(--font-mono)" fill="var(--ink-3)">#${i}</text>`;
+  });
+  xlab += `<text x="${(m.l+iw/2).toFixed(1)}" y="${(H-2).toFixed(1)}" text-anchor="middle" font-size="10" font-family="var(--font-mono)" fill="var(--ink-3)">incumbent iteration</text>`;
+
+  return `<svg class="descent" viewBox="0 0 ${W} ${H}" role="img" aria-label="worst-axis excess descending and staying at or below its start">
+    <defs>
+      <linearGradient id="${cssId}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.22"/>
+        <stop offset="100%" stop-color="var(--accent)" stop-opacity="0.02"/>
+      </linearGradient>
+    </defs>
+    ${grid}${region}${boundary}
+    <path d="${areaPath}" fill="url(#${cssId})"/>
+    <path class="draw-line" d="${linePath}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+      style="stroke-dasharray:${len.toFixed(1)};stroke-dashoffset:${len.toFixed(1)};animation:draw 1.1s .2s ease forwards"/>
+    ${circles}${xlab}
+  </svg>
+  <style>@keyframes draw{to{stroke-dashoffset:0}}</style>`;
+}
+function pathLen(pts) { let l = 0; for (let i=1;i<pts.length;i++){ const dx=pts[i][0]-pts[i-1][0], dy=pts[i][1]-pts[i-1][1]; l += Math.hypot(dx,dy);} return l || 1; }
+function niceTicks(min, max, count) {
+  const span = max - min || 1;
+  const step = niceStep(span / count);
+  const ticks = [];
+  const start = Math.ceil(min / step) * step;
+  for (let v = start; v <= max + 1e-9; v += step) ticks.push(Math.round(v/step)*step);
+  return ticks;
+}
+function niceStep(raw) {
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const norm = raw / mag;
+  const nice = norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10;
+  return nice * mag;
+}
+
+/* ---------- 4 · REUSE ---------- */
+function renderReuse(p) {
+  const frag = document.createDocumentFragment();
+  frag.appendChild(el("p", "subcopy",
+    "What descent learns is keyed to the task's shape, not its words. The second time it meets this species, it warm-starts from the cached best plan. Cold planning is skipped; it converges in one iteration."));
+  const card = el("div", "card");
+  const rows = el("div", "reuse-rows");
+  if (p.task) {
+    const t = el("div", "run-note"); t.style.marginBottom = "2px";
+    t.innerHTML = `Task · <span class="mono">${esc(p.task)}</span>`;
+    rows.appendChild(t);
+  }
+  [["run1","Run 1", p.run1],["run2","Run 2", p.run2]].forEach(([key,label,r]) => {
+    if (!r) return;
+    const warm = !!r.warm;
+    const row = el("div", "run-row" + (warm ? " warm" : ""));
+    row.appendChild(el("div", "run-label", label));
+    const note = el("div");
+    note.appendChild(warm
+      ? Object.assign(el("span","warm-badge"), { textContent: "⚡ warm-started" })
+      : Object.assign(el("span","cold-badge"), { textContent: "cold plan" }));
+    row.appendChild(note);
+    const mv = el("div", "run-metric");
+    mv.innerHTML = `<div class="k">verdict</div><div class="v ${verdictPill(r.verdict)}">${esc(r.verdict||"—")}</div>`;
+    row.appendChild(mv);
+    const mi = el("div", "run-metric");
+    mi.innerHTML = `<div class="k">iterations</div><div class="v">${r.iters != null ? r.iters : "—"}</div>`;
+    row.appendChild(mi);
+    rows.appendChild(row);
+  });
+  card.appendChild(rows);
+  frag.appendChild(card);
+  return frag;
+}
+function verdictPill(v) { return v === "good" ? "good" : v === "mixed" ? "mixed" : v === "poor" ? "poor" : ""; }
+
+/* ---------- 5 · CONVERGE ---------- */
+function renderConverge(p, thr) {
+  const frag = document.createDocumentFragment();
+  frag.appendChild(el("p", "subcopy",
+    "Different random seeds, same task. Convergence is a region, not a point — each run lands inside the satisfying region (worst-axis excess ≤ 0), so the outcome is stable across restarts."));
+  const card = el("div", "card converge-card");
+
+  const reps = Array.isArray(p.reps) ? p.reps : [];
+  const points = reps.map(r => ({ rep: r.rep, verdict: r.verdict, we: worstExcess(r.ef || {}, thr) }));
+  const plot = el("div", "region-plot");
+  plot.innerHTML = convergeSVG(points);
+  card.appendChild(plot);
+
+  const legend = el("div", "converge-legend");
+  legend.innerHTML = `
+    <span class="lg"><span class="sw" style="background:var(--region)"></span>satisfying region (excess ≤ 0)</span>
+    <span class="lg"><span class="sw" style="background:var(--accent)"></span>run outcome</span>`;
+  card.appendChild(legend);
+
+  const grid = el("div", "reps");
+  reps.forEach(r => {
+    const rc = el("div", "rep");
+    const rh = el("div", "rhead");
+    rh.appendChild(el("span", "seed", "seed " + esc(r.rep)));
+    rh.appendChild(Object.assign(el("span", "vpill " + verdictPill(r.verdict)), { textContent: esc(r.verdict||"—") }));
+    rc.appendChild(rh);
+    const ax = el("div", "mini-ax");
+    AXES.forEach(a => {
+      const v = (r.ef || {})[a];
+      const t = thr[a];
+      const over = typeof v === "number" && typeof t === "number" && v > t;
+      const row = el("div", "mrow");
+      row.appendChild(el("span", "ml", a));
+      const track = el("div", "track");
+      const bar = el("i");
+      const pct = typeof v === "number" ? Math.max(2, Math.min(100, v*100)) : 0;
+      bar.style.width = pct + "%";
+      bar.style.background = over ? "var(--bad)" : "var(--good)";
+      track.appendChild(bar);
+      row.appendChild(track);
+      row.appendChild(Object.assign(el("span","mv"), { textContent: typeof v==="number"? v.toFixed(2):"—" }));
+      ax.appendChild(row);
+    });
+    rc.appendChild(ax);
+    grid.appendChild(rc);
+  });
+  card.appendChild(grid);
+  frag.appendChild(card);
+  return frag;
+}
+
+function convergeSVG(points) {
+  const W = 640, H = 168, m = { t: 22, r: 24, b: 48, l: 24 };
+  const iw = W - m.l - m.r, ih = H - m.t - m.b;
+  const wes = points.map(p => p.we).filter(v => isFinite(v));
+  const xMax = Math.max(0.05, ...wes.map(v => v), 0.02);
+  const xMin = Math.min(-0.5, ...wes.map(v => v));
+  const x = v => m.l + ((v - xMin) / (xMax - xMin)) * iw;
+  const x0 = x(0);
+  const cy = m.t + ih / 2;
+
+  // region: excess <= 0 (left of x0)
+  const region = `<rect x="${m.l}" y="${m.t}" width="${(x0-m.l).toFixed(1)}" height="${ih}" fill="var(--region)"/>`;
+  const boundary = `<line x1="${x0.toFixed(1)}" x2="${x0.toFixed(1)}" y1="${m.t}" y2="${m.t+ih}" stroke="var(--good)" stroke-width="1.5" stroke-dasharray="5 4" opacity="0.85"/>
+    <text x="${x0.toFixed(1)}" y="${(m.t-8).toFixed(1)}" text-anchor="middle" font-size="10" font-family="var(--font-mono)" fill="var(--good)">boundary · excess = 0</text>`;
+  const axis = `<line x1="${m.l}" x2="${W-m.r}" y1="${cy.toFixed(1)}" y2="${cy.toFixed(1)}" stroke="var(--line-2)" stroke-width="1"/>`;
+
+  // ticks
+  let ticks = "";
+  niceTicks(xMin, xMax, 5).forEach(t => {
+    const xx = x(t);
+    ticks += `<text x="${xx.toFixed(1)}" y="${(m.t+ih+18).toFixed(1)}" text-anchor="middle" font-size="9.5" font-family="var(--font-mono)" fill="var(--ink-3)">${(t>0?"+":"")+t.toFixed(2)}</text>`;
+  });
+
+  // dots (jitter vertically to avoid overlap)
+  const dots = points.map((p, i) => {
+    if (!isFinite(p.we)) return "";
+    const jy = cy + (i - (points.length-1)/2) * 20;
+    const px = x(p.we);
+    // flip label to the left of the dot when it sits near the right edge, so it never clips
+    const near = px > W * 0.62;
+    const tx = near ? px - 11 : px + 11;
+    const anchor = near ? "end" : "start";
+    return `<line x1="${px.toFixed(1)}" x2="${px.toFixed(1)}" y1="${cy.toFixed(1)}" y2="${jy.toFixed(1)}" stroke="var(--line-2)" stroke-width="1"/>
+      <circle cx="${px.toFixed(1)}" cy="${jy.toFixed(1)}" r="6" fill="var(--accent)" stroke="var(--panel)" stroke-width="2"/>
+      <text x="${tx.toFixed(1)}" y="${(jy+3.5).toFixed(1)}" text-anchor="${anchor}" font-size="10" font-family="var(--font-mono)" fill="var(--ink-2)">seed ${esc(p.rep)} · ${(p.we>0?"+":"")+p.we.toFixed(2)}</text>`;
+  }).join("");
+
+  return `<svg class="region" viewBox="0 0 ${W} ${H}" role="img" aria-label="all runs land at or inside the satisfying region">
+    ${region}${axis}${boundary}${ticks}${dots}
+    <text x="${(m.l+iw/2).toFixed(1)}" y="${(m.t+ih+38).toFixed(1)}" text-anchor="middle" font-size="9.5" font-family="var(--font-mono)" fill="var(--ink-3)">worst-axis excess →</text>
+  </svg>`;
+}
+
+/* ---------- interactions ---------- */
+function wireReveal() {
+  const els = document.querySelectorAll(".reveal");
+  if (!("IntersectionObserver" in window)) { els.forEach(e => e.classList.add("in")); return; }
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } });
+  }, { threshold: 0.12 });
+  els.forEach(e => io.observe(e));
+}
+function wireScrollspy() {
+  const links = Array.from(document.querySelectorAll(".navpill"));
+  const map = new Map(links.map(l => [l.getAttribute("href").slice(1), l]));
+  if (!("IntersectionObserver" in window)) return;
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        links.forEach(l => l.classList.remove("active"));
+        const l = map.get(e.target.id);
+        if (l) l.classList.add("active");
+      }
+    });
+  }, { rootMargin: "-45% 0px -50% 0px", threshold: 0 });
+  document.querySelectorAll(".panel").forEach(p => io.observe(p));
+}
+
+/* ---------- data loading ---------- */
+function loadFromFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      if (!data || !Array.isArray(data.claims)) throw new Error("missing claims[]");
+      render(data);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (err) {
+      alert("Could not read that file as evidence JSON.\n\n" + err.message +
+            "\n\nExpected the schema written by scripts/evidence.py.");
+    }
+  };
+  reader.onerror = () => alert("Could not read the file.");
+  reader.readAsText(file);
+}
+
+/* drag & drop */
+let dragDepth = 0;
+const overlay = $("#drop-overlay");
+window.addEventListener("dragenter", e => { e.preventDefault(); dragDepth++; overlay.classList.add("on"); });
+window.addEventListener("dragover", e => { e.preventDefault(); });
+window.addEventListener("dragleave", e => { e.preventDefault(); if (--dragDepth <= 0) { dragDepth = 0; overlay.classList.remove("on"); } });
+window.addEventListener("drop", e => {
+  e.preventDefault(); dragDepth = 0; overlay.classList.remove("on");
+  const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+  loadFromFile(f);
+});
+$("#file-input").addEventListener("change", e => loadFromFile(e.target.files[0]));
+$("#load-btn").addEventListener("click", () => $("#file-input").click());
+
+/* theme toggle */
+function applyTheme(t) {
+  if (t) document.documentElement.setAttribute("data-theme", t);
+  try { localStorage.setItem("ceodelta-theme", t); } catch {}
+}
+(function initTheme(){
+  let saved = null; try { saved = localStorage.getItem("ceodelta-theme"); } catch {}
+  if (saved) document.documentElement.setAttribute("data-theme", saved);
+})();
+$("#theme-btn").addEventListener("click", () => {
+  const cur = document.documentElement.getAttribute("data-theme");
+  const dark = cur ? cur === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+  applyTheme(dark ? "light" : "dark");
+});
+
+/* boot */
+render(SAMPLE_DATA);
+</script>
+</body>
+</html>
