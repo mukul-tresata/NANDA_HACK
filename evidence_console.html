@@ -558,6 +558,41 @@
     .two-col { grid-template-columns: 1fr; }
   }
 
+  /* card with an illustration beside the copy */
+  .pitch-split { display: grid; grid-template-columns: 1fr 300px; gap: 34px; align-items: center; }
+  .pitch-split > .pitch-text { min-width: 0; }
+  .pitch-split .illo { width: 100%; height: auto; display: block; }
+  .illo-node { fill: var(--panel-2); stroke: var(--line-2); stroke-width: 1.6; }
+  .illo-node.accent { fill: var(--accent-wash); stroke: var(--accent); stroke-width: 2; }
+  .illo-node.bad { stroke: var(--bad); }
+  .illo-edge { stroke: var(--line-2); stroke-width: 1.6; fill: none; }
+  .illo-edge.accent { stroke: var(--accent); stroke-width: 1.8; }
+  .illo-edge.tangle { stroke: var(--bad); stroke-width: 1.4; opacity: .7; fill: none; }
+  .illo-label { font-family: var(--font-mono); font-size: 10px; fill: var(--ink-3); letter-spacing: .04em; text-transform: uppercase; }
+  .illo-arrow { stroke: var(--ink-3); stroke-width: 1.6; fill: none; }
+  @media (max-width: 760px) { .pitch-split { grid-template-columns: 1fr; } .pitch-split .illo { max-width: 320px; margin: 4px auto 0; } }
+
+  /* full-width expand body (no narrow centered column) */
+  .more-body p { max-width: none; }
+
+  /* core-idea: clear subsection headings + the E/F gap-bar illustration */
+  .ci-block { margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--line); }
+  .ci-block:first-of-type { border-top: none; padding-top: 4px; }
+  .ci-eyebrow { font-family: var(--font-mono); font-size: 11.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent-2); font-weight: 700; margin-bottom: 8px; }
+  .ci-head { font-size: clamp(18px, 2.2vw, 22px); font-weight: 660; color: var(--ink); margin: 0 0 8px; letter-spacing: -.012em; }
+  .ci-body { font-size: 14.5px; line-height: 1.6; color: var(--ink-2); margin: 0; max-width: 74ch; }
+  .ci-body b { color: var(--ink); font-weight: 620; }
+  .ci-body .mono { color: var(--accent-2); }
+  .gapbars { margin-top: 22px; }
+  .gapbars svg { width: 100%; height: auto; display: block; }
+  .gb-axis { font-family: var(--font-mono); font-size: 12.5px; fill: var(--ink-2); }
+  .gb-track { stroke: var(--line); stroke-width: 6; stroke-linecap: round; }
+  .gb-gap { stroke: color-mix(in srgb, var(--accent) 34%, transparent); stroke-width: 6; stroke-linecap: round; }
+  .gb-actual { fill: var(--ink-2); }
+  .gb-target { fill: none; stroke: var(--accent); stroke-width: 2; }
+  .gb-legend { font-family: var(--font-mono); font-size: 11px; fill: var(--ink-3); }
+  .gb-caption { font-family: var(--font-mono); font-size: 11px; fill: var(--accent-2); letter-spacing: .04em; }
+
   /* footer */
   footer { border-top: 1px solid var(--line); padding: 26px 0 40px; color: var(--ink-3); font-size: 12.5px; }
   footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
@@ -636,20 +671,55 @@
 
     <!-- 01 · WHY -->
     <div class="card pitch-card">
-      <div class="pitch-kicker">01 &middot; Why multi-agents</div>
-      <h2 class="pitch-headline">Modularity should buy reliability.</h2>
-      <p class="pitch-punch">Split a task across a retriever, a synthesizer, and a verifier &mdash; each one is easier
-        to build, test, and trust than a single monolithic prompt doing all three at once.</p>
-      <details class="more">
-        <summary>Expand</summary>
-        <div class="more-body">
-          <p>This is the same bet software engineering has always made: small, single-purpose parts are predictable
-            and debuggable in a way that one large opaque thing never is. When something fails, you know <i>which</i>
-            component failed and why.</p>
-          <p>So the promise of multi-agent systems isn't &ldquo;more agents&rdquo; &mdash; it's that decomposition
-            gives you back the reliability a single black-box LLM call throws away.</p>
+      <div class="pitch-split">
+        <div class="pitch-text">
+          <div class="pitch-kicker">01 &middot; Why multi-agents</div>
+          <h2 class="pitch-headline">Modularity should buy reliability.</h2>
+          <p class="pitch-punch">Split a task across a retriever, a synthesizer, and a verifier &mdash; each one is
+            easier to build, test, and trust than a single monolithic prompt doing all three at once.</p>
+          <details class="more">
+            <summary>Expand</summary>
+            <div class="more-body">
+              <p>This is the same bet software engineering has always made: small, single-purpose parts are
+                predictable and debuggable in a way that one large opaque thing never is. When something fails, you
+                know <i>which</i> component failed and why.</p>
+              <p>So the promise of multi-agent systems isn't &ldquo;more agents&rdquo; &mdash; it's that decomposition
+                gives you back the reliability a single black-box LLM call throws away.</p>
+            </div>
+          </details>
         </div>
-      </details>
+        <!-- illustration: a task fanned out to specialist agents, merged back -->
+        <svg class="illo" viewBox="0 0 260 210" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <defs>
+            <marker id="ia" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="var(--line-2)"/>
+            </marker>
+          </defs>
+          <!-- edges: task -> 3 agents -> output -->
+          <path class="illo-edge" marker-end="url(#ia)" d="M130,44 C90,58 66,64 56,78"/>
+          <path class="illo-edge" marker-end="url(#ia)" d="M130,44 L130,78"/>
+          <path class="illo-edge" marker-end="url(#ia)" d="M130,44 C170,58 194,64 204,78"/>
+          <path class="illo-edge" marker-end="url(#ia)" d="M56,126 C66,142 90,150 122,162"/>
+          <path class="illo-edge" marker-end="url(#ia)" d="M130,126 L130,160"/>
+          <path class="illo-edge" marker-end="url(#ia)" d="M204,126 C194,142 170,150 138,162"/>
+          <!-- task -->
+          <rect class="illo-node accent" x="96" y="16" width="68" height="28" rx="8"/>
+          <text class="illo-label" x="130" y="34" text-anchor="middle" style="fill:var(--accent-2)">task</text>
+          <!-- three specialist agents -->
+          <circle class="illo-node" cx="56" cy="102" r="24"/>
+          <text class="illo-label" x="56" y="99" text-anchor="middle" style="font-size:8px">retriev.</text>
+          <text class="illo-label" x="56" y="110" text-anchor="middle" style="font-size:8px">agent</text>
+          <circle class="illo-node" cx="130" cy="102" r="24"/>
+          <text class="illo-label" x="130" y="99" text-anchor="middle" style="font-size:8px">synth.</text>
+          <text class="illo-label" x="130" y="110" text-anchor="middle" style="font-size:8px">agent</text>
+          <circle class="illo-node" cx="204" cy="102" r="24"/>
+          <text class="illo-label" x="204" y="99" text-anchor="middle" style="font-size:8px">verifier</text>
+          <text class="illo-label" x="204" y="110" text-anchor="middle" style="font-size:8px">agent</text>
+          <!-- merged output -->
+          <rect class="illo-node accent" x="96" y="162" width="68" height="28" rx="8"/>
+          <text class="illo-label" x="130" y="180" text-anchor="middle" style="fill:var(--accent-2)">answer</text>
+        </svg>
+      </div>
     </div>
 
     <!-- 02 · THE BREAK -->
@@ -689,23 +759,64 @@
 
     <!-- 03 · THE GAP -->
     <div class="card pitch-card emphasis">
-      <div class="pitch-kicker">03 &middot; The gap</div>
-      <h2 class="pitch-headline">Structure the substrate, not just the agents.</h2>
-      <p class="pitch-punch">If we inject structure and predictable determinism into <b>how agents interact and spawn
-        each other</b> &mdash; not into the agents themselves &mdash; we get both worlds: the flexibility of LLM
-        agents with the reliability of an engineered system.</p>
-      <details class="more">
-        <summary>Why hasn't this been done</summary>
-        <div class="more-body">
-          <p>Almost every effort so far pushes on the <b>agents</b>: better prompts, bigger models, more elaborate
-            personas &mdash; making each individual smarter. The rest bolt on <b>post-hoc checks</b>: run the whole
-            thing, then judge the output after the damage is done.</p>
-          <p>Neither treats the <b>shape of the collaboration itself</b> &mdash; who talks to whom, in what order,
-            playing what role &mdash; as a first-class thing you can measure and govern. That's the empty lane. The
-            hard part isn't wanting structure; it's finding a representation of &ldquo;a good collaboration&rdquo;
-            that a machine can actually compute and act on. That representation is what the rest of this is.</p>
+      <div class="pitch-split">
+        <div class="pitch-text">
+          <div class="pitch-kicker">03 &middot; The gap</div>
+          <h2 class="pitch-headline">Structure the substrate, not just the agents.</h2>
+          <p class="pitch-punch">If we inject structure and predictable determinism into <b>how agents interact and
+            spawn each other</b> &mdash; not into the agents themselves &mdash; we get both worlds: the flexibility of
+            LLM agents with the reliability of an engineered system.</p>
+          <details class="more">
+            <summary>Why hasn't this been done</summary>
+            <div class="more-body">
+              <p>Almost every effort so far pushes on the <b>agents</b>: better prompts, bigger models, more elaborate
+                personas &mdash; making each individual smarter. The rest bolt on <b>post-hoc checks</b>: run the whole
+                thing, then judge the output after the damage is done.</p>
+              <p>Neither treats the <b>shape of the collaboration itself</b> &mdash; who talks to whom, in what order,
+                playing what role &mdash; as a first-class thing you can measure and govern. That's the empty lane.
+                The hard part isn't wanting structure; it's finding a representation of &ldquo;a good
+                collaboration&rdquo; that a machine can actually compute and act on. That representation is what the
+                rest of this is.</p>
+            </div>
+          </details>
         </div>
-      </details>
+        <!-- illustration: ungoverned tangle -> governed structure -->
+        <svg class="illo" viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <defs>
+            <marker id="ga" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="var(--ink-3)"/>
+            </marker>
+          </defs>
+          <!-- LEFT: tangled, ungoverned web -->
+          <path class="illo-edge tangle" d="M28,44 C70,80 40,120 96,70"/>
+          <path class="illo-edge tangle" d="M96,40 C50,90 110,140 34,110"/>
+          <path class="illo-edge tangle" d="M30,110 C80,120 60,50 100,120"/>
+          <path class="illo-edge tangle" d="M100,70 C60,130 96,150 40,140"/>
+          <circle class="illo-node bad" cx="30" cy="44" r="10"/>
+          <circle class="illo-node bad" cx="98" cy="40" r="10"/>
+          <circle class="illo-node bad" cx="34" cy="112" r="10"/>
+          <circle class="illo-node bad" cx="100" cy="72" r="10"/>
+          <circle class="illo-node bad" cx="42" cy="142" r="10"/>
+          <circle class="illo-node bad" cx="102" cy="122" r="10"/>
+          <text class="illo-label" x="66" y="182" text-anchor="middle" style="fill:var(--bad)">ungoverned</text>
+
+          <!-- arrow -->
+          <path class="illo-arrow" marker-end="url(#ga)" d="M138,96 L172,96"/>
+
+          <!-- RIGHT: ordered, governed graph -->
+          <path class="illo-edge accent" d="M258,52 L226,86"/>
+          <path class="illo-edge accent" d="M258,52 L290,86"/>
+          <path class="illo-edge accent" d="M226,96 L226,124"/>
+          <path class="illo-edge accent" d="M290,96 L290,124"/>
+          <path class="illo-edge accent" d="M234,134 L282,134"/>
+          <circle class="illo-node accent" cx="258" cy="46" r="11"/>
+          <circle class="illo-node accent" cx="226" cy="90" r="11"/>
+          <circle class="illo-node accent" cx="290" cy="90" r="11"/>
+          <circle class="illo-node accent" cx="226" cy="134" r="11"/>
+          <circle class="illo-node accent" cx="290" cy="134" r="11"/>
+          <text class="illo-label" x="258" y="182" text-anchor="middle" style="fill:var(--accent-2)">governed</text>
+        </svg>
+      </div>
     </div>
 
   </div>
@@ -730,39 +841,59 @@
 
   <div class="card arch-block headline-block emphasis">
     <h3 class="block-title">The core idea: a task's required shape, and the plan's distance from it</h3>
-    <p class="block-copy">To govern a collaboration you first need to <b>measure</b> it. Conductor-Delta does that with two
-      objects that live in the <b>same coordinate system</b> &mdash; four structural axes:
-      <span class="mono">partition &middot; flow &middot; role &middot; scale</span>. Read it in three steps.</p>
 
-    <div class="core-steps">
-      <div class="core-step">
-        <div class="n">1</div>
-        <div>
-          <p class="sub-head">F &mdash; the shape the task <i>requires</i></p>
-          <p class="sub-body">Before any plan is built, the task is classified into a structural <b>fingerprint</b>,
-            and from that fingerprint we derive <span class="mono">F</span> &mdash; the RequiredStructure.
-            Deterministic, no LLM. <i>&ldquo;This is a divergent retrieval task &rarr; it requires parallel gathering,
-            a synthesizer, and depth &asymp; 3.&rdquo;</i></p>
-        </div>
-      </div>
-      <div class="core-step">
-        <div class="n">2</div>
-        <div>
-          <p class="sub-head">E &mdash; how far the <i>built</i> plan sits from F</p>
-          <p class="sub-body">After the plan is built and run, we measure it on the very same four axes and take the
-            per-axis <b>distance from F</b>. That distance vector is <span class="mono">E</span> (the fingerprint gap),
-            each axis in <span class="mono">[0,1]</span>. Low E means the plan matches the shape the task demanded.</p>
-        </div>
-      </div>
-      <div class="core-step">
-        <div class="n">3</div>
-        <div>
-          <p class="sub-head">Same axes &rarr; error becomes a direction to move</p>
-          <p class="sub-body">Because E and F share one coordinate system, the error isn't just a score &mdash; it
-            <b>points at which axis to fix</b>. That is what makes repair a literal descent: lock the worst axis,
-            fix it, re-measure. And because the axes describe <i>structure</i>, not wording, a fix learned on one
-            task applies to <b>every task of the same shape</b> &mdash; even ones sharing not a single word.</p>
-        </div>
+    <div class="ci-block">
+      <div class="ci-eyebrow">The task fingerprint &rarr; F</div>
+      <p class="ci-head">Every task has a required shape, worked out before anything is built.</p>
+      <p class="ci-body">Before any plan exists, the task is classified into a structural <b>fingerprint</b>, and from
+        that fingerprint we derive <span class="mono">F</span> &mdash; the required structure. Deterministic, no LLM.
+        <i>&ldquo;This is a divergent retrieval task &rarr; it needs parallel gathering, a synthesizer, and depth
+        &asymp; 3.&rdquo;</i> Four axes carry it: <span class="mono">partition &middot; flow &middot; role &middot;
+        scale</span>.</p>
+    </div>
+
+    <div class="ci-block">
+      <div class="ci-eyebrow">The fingerprint gap &rarr; E</div>
+      <p class="ci-head">How far the built plan sits from that shape &mdash; on the same four axes.</p>
+      <p class="ci-body">After the plan is built and run, we measure it on the <b>very same axes</b> and take the
+        per-axis distance from F. That distance is <span class="mono">E</span>, the <b>fingerprint gap</b>, each axis
+        in <span class="mono">[0,1]</span>. Because E and F live in one coordinate system, the gap isn't just a score
+        &mdash; it names <i>which axis</i> to fix, and a fix learned on one task carries to every task of the same
+        shape, even ones sharing not a single word.</p>
+
+      <div class="gapbars">
+        <svg viewBox="0 0 620 232" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <!-- partition -->
+          <text class="gb-axis" x="112" y="54" text-anchor="end">partition</text>
+          <line class="gb-track" x1="130" y1="50" x2="590" y2="50"/>
+          <line class="gb-gap" x1="130" y1="50" x2="268" y2="50"/>
+          <circle class="gb-target" cx="130" cy="50" r="6"/>
+          <circle class="gb-actual" cx="268" cy="50" r="6"/>
+          <!-- flow (matches F: no gap) -->
+          <text class="gb-axis" x="112" y="96" text-anchor="end">flow</text>
+          <line class="gb-track" x1="130" y1="92" x2="590" y2="92"/>
+          <circle class="gb-target" cx="130" cy="92" r="6"/>
+          <circle class="gb-actual" cx="130" cy="92" r="6"/>
+          <!-- role -->
+          <text class="gb-axis" x="112" y="138" text-anchor="end">role</text>
+          <line class="gb-track" x1="130" y1="134" x2="590" y2="134"/>
+          <line class="gb-gap" x1="130" y1="134" x2="231" y2="134"/>
+          <circle class="gb-target" cx="130" cy="134" r="6"/>
+          <circle class="gb-actual" cx="231" cy="134" r="6"/>
+          <!-- scale -->
+          <text class="gb-axis" x="112" y="180" text-anchor="end">scale</text>
+          <line class="gb-track" x1="130" y1="176" x2="590" y2="176"/>
+          <line class="gb-gap" x1="130" y1="176" x2="199" y2="176"/>
+          <circle class="gb-target" cx="130" cy="176" r="6"/>
+          <circle class="gb-actual" cx="199" cy="176" r="6"/>
+          <!-- legend -->
+          <circle class="gb-target" cx="136" cy="214" r="6"/>
+          <text class="gb-legend" x="148" y="218">F (required)</text>
+          <circle class="gb-actual" cx="266" cy="214" r="6"/>
+          <text class="gb-legend" x="278" y="218">actual plan</text>
+          <line class="gb-gap" x1="392" y1="214" x2="420" y2="214"/>
+          <text class="gb-caption" x="428" y="218">= the fingerprint gap (E)</text>
+        </svg>
       </div>
     </div>
 
