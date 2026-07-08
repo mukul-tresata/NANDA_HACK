@@ -791,7 +791,7 @@
       system its guarantees: an <b style="color:var(--accent-2)">inner repair loop</b> that descends on error, and
       an <b>outer memory loop</b> that carries what worked forward to the next task of the same shape.</p>
     <div class="flow-diagram">
-      <svg viewBox="0 0 1000 432" xmlns="http://www.w3.org/2000/svg">
+      <svg viewBox="0 0 940 432" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <marker id="fa1" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
             <path d="M0,0 L10,5 L0,10 z" fill="var(--line-2)"/>
@@ -804,28 +804,28 @@
           </marker>
         </defs>
 
-        <!-- ======= the repair cycle spins off the top of the CONDUCTOR ======= -->
-        <text class="flow-label loop" x="659" y="30" text-anchor="middle">the repair cycle &mdash; spins until the fingerprint gap can't shrink further</text>
-        <!-- conductor -> kernel -->
-        <path id="e_ck" class="flow-edge loop" marker-end="url(#fa2)" d="M452,182 C452,140 505,118 552,118"/>
-        <!-- kernel -> delta (top bow) -->
-        <path id="e_kd" class="flow-edge loop" marker-end="url(#fa2)" d="M618,89 C650,72 668,72 700,89"/>
-        <!-- delta -> conductor (the hero return curve) -->
-        <path id="e_dc" class="flow-edge loop" marker-end="url(#fa2)" d="M766,118 C778,180 610,198 502,186"/>
-        <text class="flow-label loop" x="648" y="150" text-anchor="middle">fingerprint gap &rarr;</text>
+        <!-- ======= the repair cycle: KERNEL and DELTA flank the CONDUCTOR, symmetric ======= -->
+        <text class="flow-label loop" x="500" y="30" text-anchor="middle">the repair cycle &mdash; spins until the fingerprint gap can&rsquo;t shrink further</text>
+        <!-- conductor -> kernel (left leg, up) -->
+        <path id="e_ck" class="flow-edge loop" marker-end="url(#fa2)" d="M460,182 C438,150 390,146 390,116"/>
+        <!-- kernel -> delta (across the top) -->
+        <path id="e_kd" class="flow-edge loop" marker-end="url(#fa2)" d="M456,87 C500,71 500,71 544,87"/>
+        <!-- delta -> conductor (right leg, down) -->
+        <path id="e_dc" class="flow-edge loop" marker-end="url(#fa2)" d="M610,116 C610,150 562,152 540,182"/>
+        <text class="flow-label loop" x="600" y="150" text-anchor="middle">fingerprint gap &rarr;</text>
 
         <!-- ======= input spine (left) ======= -->
-        <path id="e_tr" class="flow-edge" marker-end="url(#fa1)" d="M128,225 L164,225"/>
-        <path id="e_rc" class="flow-edge" marker-end="url(#fa1)" d="M302,225 L362,225"/>
+        <path id="e_tr" class="flow-edge" marker-end="url(#fa1)" d="M128,225 L168,225"/>
+        <path id="e_rc" class="flow-edge" marker-end="url(#fa1)" d="M302,225 L416,225"/>
 
-        <!-- ======= output (right) — emitted BY the conductor when it composes ======= -->
-        <path id="e_ca" class="flow-edge" marker-end="url(#fa1)" d="M530,225 L836,225"/>
-        <text class="flow-label" x="690" y="216" text-anchor="middle">on convergence &rarr; compose</text>
+        <!-- ======= output (right) — emitted BY the conductor on convergence ======= -->
+        <path id="e_ca" class="flow-edge" marker-end="url(#fa1)" d="M584,225 L698,225"/>
+        <text class="flow-label" x="641" y="216" text-anchor="middle">compose &rarr;</text>
 
         <!-- ======= memory loop hangs below the CONDUCTOR ======= -->
-        <path id="e_mo" class="flow-edge mem" marker-end="url(#fa3)" d="M428,268 L428,342"/>
-        <path id="e_mi" class="flow-edge mem" marker-end="url(#fa3)" d="M468,342 L468,268"/>
-        <text class="flow-label" x="448" y="414" text-anchor="middle">persist best plan &nbsp;/&nbsp; warm-start next task of this shape &middot; memory</text>
+        <path id="e_mo" class="flow-edge mem" marker-end="url(#fa3)" d="M482,268 L482,342"/>
+        <path id="e_mi" class="flow-edge mem" marker-end="url(#fa3)" d="M518,342 L518,268"/>
+        <text class="flow-label" x="500" y="414" text-anchor="middle">persist best plan &nbsp;/&nbsp; warm-start next task of this shape &middot; memory</text>
 
         <!-- ======= nodes ======= -->
         <g class="flow-node"><rect x="20" y="197" width="108" height="56" rx="11"/>
@@ -836,37 +836,33 @@
           <text class="ttl" x="235" y="222" text-anchor="middle">RESEARCH</text>
           <text class="sub" x="235" y="239" text-anchor="middle">intent &#8594; F</text></g>
 
-        <g class="flow-node hub"><rect x="366" y="182" width="164" height="86" rx="13"/>
-          <text class="ttl" x="448" y="218" text-anchor="middle">CONDUCTOR</text>
-          <text class="sub" x="448" y="238" text-anchor="middle">plan &middot; repair &middot; compose</text></g>
+        <g class="flow-node"><rect x="324" y="58" width="132" height="58" rx="11"/>
+          <text class="ttl" x="390" y="84" text-anchor="middle">KERNEL</text>
+          <text class="sub" x="390" y="101" text-anchor="middle">execute DAG</text></g>
 
-        <g class="flow-node"><rect x="486" y="60" width="132" height="58" rx="11"/>
-          <text class="ttl" x="552" y="86" text-anchor="middle">KERNEL</text>
-          <text class="sub" x="552" y="103" text-anchor="middle">execute DAG</text></g>
+        <g class="flow-node hub"><rect x="416" y="182" width="168" height="86" rx="13"/>
+          <text class="ttl" x="500" y="218" text-anchor="middle">CONDUCTOR</text>
+          <text class="sub" x="500" y="238" text-anchor="middle">plan &middot; repair &middot; compose</text></g>
 
-        <g class="flow-node emphasis"><rect x="700" y="60" width="132" height="58" rx="11"/>
-          <text class="ttl" x="766" y="86" text-anchor="middle">DELTA</text>
-          <text class="sub" x="766" y="103" text-anchor="middle">measure gap</text></g>
+        <g class="flow-node emphasis"><rect x="544" y="58" width="132" height="58" rx="11"/>
+          <text class="ttl" x="610" y="84" text-anchor="middle">DELTA</text>
+          <text class="sub" x="610" y="101" text-anchor="middle">measure gap</text></g>
 
-        <g class="flow-node"><rect x="840" y="197" width="140" height="56" rx="11"/>
-          <text class="ttl" x="910" y="222" text-anchor="middle">ANSWER</text>
-          <text class="sub" x="910" y="239" text-anchor="middle">RunResult</text></g>
+        <g class="flow-node"><rect x="698" y="197" width="140" height="56" rx="11"/>
+          <text class="ttl" x="768" y="222" text-anchor="middle">ANSWER</text>
+          <text class="sub" x="768" y="239" text-anchor="middle">RunResult</text></g>
 
-        <g class="flow-node store"><rect x="358" y="342" width="180" height="50" rx="11"/>
-          <text class="ttl" x="448" y="366" text-anchor="middle">F-KEYED STORE</text>
-          <text class="sub" x="448" y="382" text-anchor="middle">species &#8594; best plan</text></g>
+        <g class="flow-node store"><rect x="410" y="342" width="180" height="50" rx="11"/>
+          <text class="ttl" x="500" y="366" text-anchor="middle">F-KEYED STORE</text>
+          <text class="sub" x="500" y="382" text-anchor="middle">species &#8594; best plan</text></g>
 
         <!-- ======= travelling packets ======= -->
-        <!-- input spine -->
         <circle class="packet" r="4"><animateMotion dur="3.6s" begin="0s"   repeatCount="indefinite" keyPoints="0;0;1;1" keyTimes="0;0.15;0.4;1" calcMode="linear"><mpath href="#e_tr"/></animateMotion></circle>
         <circle class="packet" r="4"><animateMotion dur="3.6s" begin="0.5s" repeatCount="indefinite" keyPoints="0;0;1;1" keyTimes="0;0.35;0.6;1" calcMode="linear"><mpath href="#e_rc"/></animateMotion></circle>
-        <!-- the repair cycle circulating (the visual heartbeat) -->
-        <circle class="packet" r="4.5"><animateMotion dur="3s" begin="0s"    repeatCount="indefinite" calcMode="linear"><mpath href="#e_ck"/></animateMotion></circle>
-        <circle class="packet" r="4.5"><animateMotion dur="3s" begin="1s"    repeatCount="indefinite" calcMode="linear"><mpath href="#e_kd"/></animateMotion></circle>
-        <circle class="packet" r="4.5"><animateMotion dur="3s" begin="2s"    repeatCount="indefinite" calcMode="linear"><mpath href="#e_dc"/></animateMotion></circle>
-        <!-- output on convergence -->
+        <circle class="packet" r="4.5"><animateMotion dur="3s" begin="0s"   repeatCount="indefinite" calcMode="linear"><mpath href="#e_ck"/></animateMotion></circle>
+        <circle class="packet" r="4.5"><animateMotion dur="3s" begin="1s"   repeatCount="indefinite" calcMode="linear"><mpath href="#e_kd"/></animateMotion></circle>
+        <circle class="packet" r="4.5"><animateMotion dur="3s" begin="2s"   repeatCount="indefinite" calcMode="linear"><mpath href="#e_dc"/></animateMotion></circle>
         <circle class="packet" r="4"><animateMotion dur="3.6s" begin="1.6s" repeatCount="indefinite" keyPoints="0;0;1;1" keyTimes="0;0.55;0.95;1" calcMode="linear"><mpath href="#e_ca"/></animateMotion></circle>
-        <!-- memory pulse -->
         <circle class="packet mem-dot" r="3"><animateMotion dur="5s" begin="0.5s" repeatCount="indefinite" keyPoints="0;0;1;1" keyTimes="0;0.4;0.7;1" calcMode="linear"><mpath href="#e_mo"/></animateMotion></circle>
       </svg>
     </div>
