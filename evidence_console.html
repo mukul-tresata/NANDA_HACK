@@ -274,6 +274,8 @@
     padding: 6px 12px; border-radius: 999px; border: 1px solid transparent; transition: all .15s;
   }
   .navpill .n { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); }
+  .navpill.ref { color: var(--ink-3); }
+  .navpill.ref .n { color: var(--accent-2); }
   .navpill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--good); box-shadow: 0 0 0 3px var(--good-wash); }
   .navpill .dot.fail { background: var(--bad); box-shadow: 0 0 0 3px var(--bad-wash); }
   .navpill:hover { background: var(--panel); border-color: var(--line-2); color: var(--ink); }
@@ -659,6 +661,10 @@
   </div>
 </header>
 
+<nav class="claims" aria-label="Sections">
+  <div class="claims-inner" id="claim-nav"></div>
+</nav>
+
 <section class="hero">
   <div class="wrap hero-inner">
     <div class="eyebrow">Self-improving planning + execution · deterministic descent</div>
@@ -666,7 +672,7 @@
   </div>
 </section>
 
-<section class="problem-frame">
+<section id="why" class="problem-frame">
   <div class="wrap">
 
     <!-- 01 · WHY -->
@@ -822,44 +828,40 @@
   </div>
 </section>
 
-<nav class="claims" aria-label="Claims">
-  <div class="claims-inner" id="claim-nav"></div>
-</nav>
-
 <main class="wrap">
 
 <section id="arch" class="panel reveal">
   <div class="panel-head">
     <div class="panel-eyebrow">
       <span class="claim-no">Reference</span>
-      <span class="claim-name">Architecture</span>
-      <span class="verdict-tag ref-tag"><span class="ic">&#9670;</span>MODEL OVERVIEW</span>
+      <span class="claim-name">The idea</span>
+      <span class="verdict-tag ref-tag"><span class="ic">&#9670;</span>ONE COORDINATE SYSTEM</span>
     </div>
-    <h2 class="headline">How Conductor-Delta plans, measures, and repairs</h2>
-    <p class="subcopy">The mental model behind the claims below — the shared coordinate system, the information flow, and the module map that separate this from an LLM in a loop.</p>
+    <h2 class="headline">A task's required shape, and the plan's distance from it</h2>
+    <p class="subcopy">One shared coordinate system underlies every claim that follows. The gap it exposes is what makes the rest possible.</p>
   </div>
 
   <div class="card arch-block headline-block emphasis">
-    <h3 class="block-title">The core idea: a task's required shape, and the plan's distance from it</h3>
+    <h3 class="block-title">Two objects, one coordinate system</h3>
 
     <div class="ci-block">
       <div class="ci-eyebrow">The task fingerprint &rarr; F</div>
-      <p class="ci-head">Every task has a required shape, worked out before anything is built.</p>
-      <p class="ci-body">Before any plan exists, the task is classified into a structural <b>fingerprint</b>, and from
-        that fingerprint we derive <span class="mono">F</span> &mdash; the required structure. Deterministic, no LLM.
-        <i>&ldquo;This is a divergent retrieval task &rarr; it needs parallel gathering, a synthesizer, and depth
-        &asymp; 3.&rdquo;</i> Four axes carry it: <span class="mono">partition &middot; flow &middot; role &middot;
-        scale</span>.</p>
+      <p class="ci-head">Every task has a required shape, fixed before a plan is built.</p>
+      <p class="ci-body">We first classify the task &mdash; not its words, its <b>structure</b>: how information flows,
+        what stance it takes, its output contract, whether it decomposes. That is the <b>fingerprint</b>. From it we
+        read <span class="mono">F</span>, the <b>required structure</b>: the target flow, depth, and roles the plan
+        must have. One deterministic table lookup, no LLM. <i>&ldquo;Divergent retrieval &rarr; parallel gathering, a
+        synthesizer, depth&nbsp;&asymp;&nbsp;3.&rdquo;</i></p>
     </div>
 
     <div class="ci-block">
       <div class="ci-eyebrow">The fingerprint gap &rarr; E</div>
-      <p class="ci-head">How far the built plan sits from that shape &mdash; on the same four axes.</p>
-      <p class="ci-body">After the plan is built and run, we measure it on the <b>very same axes</b> and take the
-        per-axis distance from F. That distance is <span class="mono">E</span>, the <b>fingerprint gap</b>, each axis
-        in <span class="mono">[0,1]</span>. Because E and F live in one coordinate system, the gap isn't just a score
-        &mdash; it names <i>which axis</i> to fix, and a fix learned on one task carries to every task of the same
-        shape, even ones sharing not a single word.</p>
+      <p class="ci-head">How far the built plan sits from F &mdash; measured on four geometric axes.</p>
+      <p class="ci-body">Once the plan is built and run, we measure its distance from F along four axes &mdash;
+        <span class="mono">partition &middot; flow &middot; role &middot; scale</span>, each in <span class="mono">[0,1]</span>.
+        That vector is <span class="mono">E</span>, the <b>fingerprint gap</b>. It is measured in structure-space, so
+        phrasing washes out: the same gap on the same axis means the same defect. E names <i>which axis</i> is wrong,
+        and a fix learned once carries to every task of that shape &mdash; even ones sharing not a single word.</p>
 
       <div class="gapbars">
         <svg viewBox="0 0 620 232" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -914,6 +916,20 @@
           thing is wrong, which is exactly what makes targeted repair possible.</p>
       </div>
     </details>
+  </div>
+</section>
+
+<div id="claims-root-early"></div>
+
+<section id="flow" class="panel reveal">
+  <div class="panel-head">
+    <div class="panel-eyebrow">
+      <span class="claim-no">Reference</span>
+      <span class="claim-name">Mechanism</span>
+      <span class="verdict-tag ref-tag"><span class="ic">&#9670;</span>ONE RUN, END TO END</span>
+    </div>
+    <h2 class="headline">The same coordinate system, in motion</h2>
+    <p class="subcopy">How a single run moves from task to answer &mdash; and the modules that implement it.</p>
   </div>
 
   <div class="card arch-block headline-block">
@@ -1079,7 +1095,7 @@
   </div>
 </section>
 
-<div id="claims-root"></div>
+<div id="claims-root-late"></div>
 
 <section id="methodology" class="panel reveal">
   <div class="panel-head">
@@ -1247,32 +1263,41 @@ function render(data) {
   $("#stat-elapsed").textContent = fmtElapsed(data.elapsed_s);
   $("#foot-meta").textContent = (isSample ? "sample · " : "measured · ") + fmtTimestamp(data.generated_at);
 
-  // nav — static reference pills flank the dynamic claim pills
+  // nav — reference + claim pills in reading order (problem → idea → capture/
+  // generalize → flow → descend/reuse → method), so it spans the whole deck.
+  const claims = data.claims || [];
   const nav = $("#claim-nav");
   nav.innerHTML = "";
-  const archPill = el("a", "navpill");
-  archPill.href = "#arch";
-  archPill.innerHTML = `<span class="n">&#9670;</span>Architecture<span class="dot info"></span>`;
-  nav.appendChild(archPill);
-  (data.claims || []).forEach((c, i) => {
+  const refPill = (href, label) => {
+    const a = el("a", "navpill ref");
+    a.href = href;
+    a.innerHTML = `<span class="n">&#9670;</span>${esc(label)}`;
+    return a;
+  };
+  const claimPill = (c, i) => {
     const a = el("a", "navpill");
     a.href = "#" + esc(c.id);
     a.innerHTML = `<span class="n">${String(i+1).padStart(2,"0")}</span>${esc(c.name)}<span class="dot ${c.passed?"":"fail"}"></span>`;
-    nav.appendChild(a);
-  });
-  const methPill = el("a", "navpill");
-  methPill.href = "#methodology";
-  methPill.innerHTML = `<span class="n">&#9670;</span>Methodology<span class="dot info"></span>`;
-  nav.appendChild(methPill);
+    return a;
+  };
+  nav.appendChild(refPill("#why", "Why"));
+  nav.appendChild(refPill("#arch", "The idea"));
+  if (claims[0]) nav.appendChild(claimPill(claims[0], 0));
+  if (claims[1]) nav.appendChild(claimPill(claims[1], 1));
+  nav.appendChild(refPill("#flow", "Flow"));
+  claims.slice(2).forEach((c, k) => nav.appendChild(claimPill(c, k + 2)));
+  nav.appendChild(refPill("#methodology", "Method"));
 
-  // panels
-  const root = $("#claims-root");
-  root.innerHTML = "";
+  // panels — claims 1–2 sit before the flow/module section, 3+ after it, so the
+  // deck reads problem → payoff → resolution.
+  const rootEarly = $("#claims-root-early");
+  const rootLate = $("#claims-root-late");
+  rootEarly.innerHTML = ""; rootLate.innerHTML = "";
   const renderers = {
     "1_capture": renderCapture, "2_generalize": renderGeneralize,
     "3_descend": renderDescend, "4_reuse": renderReuse, "5_converge": renderConverge
   };
-  (data.claims || []).forEach((c, i) => {
+  claims.forEach((c, i) => {
     const section = el("section", "panel reveal");
     section.id = esc(c.id);
     section.appendChild(panelHead(c, i));
@@ -1284,7 +1309,7 @@ function render(data) {
       section.appendChild(el("p", "subcopy", "This claim could not be rendered from the loaded data."));
       console.error("render error for", c.id, err);
     }
-    root.appendChild(section);
+    (i < 2 ? rootEarly : rootLate).appendChild(section);
   });
 
   wireReveal();
@@ -1315,7 +1340,7 @@ function renderFallback(c) {
 function renderCapture(p) {
   const frag = document.createDocumentFragment();
   frag.appendChild(el("p", "subcopy",
-    "Three raw sentences from three task-types, sharing no keywords. Each is parsed deterministically into a structural species along four axes — the axes, not the words, decide the shape."));
+    "Three sentences, three task-types, no shared keywords. Each parses deterministically into a species. The axes decide the shape — not the words."));
   const grid = el("div", "capture-grid");
   (p.tasks || []).forEach(t => {
     const card = el("div", "card task-card");
@@ -1340,7 +1365,7 @@ function renderCapture(p) {
 function renderGeneralize(p) {
   const frag = document.createDocumentFragment();
   frag.appendChild(el("p", "subcopy",
-    "Two sentences with almost nothing in common on the surface. The fingerprint gap is measured in structure-space, not word-space — so phrasing washes out, and both collapse to one identical species."));
+    "Two sentences, almost nothing in common on the surface. Structure-space ignores phrasing. Both collapse to one identical species."));
 
   const card = el("div", "card gen-stage");
   const two = el("div", "gen-two");
@@ -1387,7 +1412,7 @@ function renderGeneralize(p) {
 function renderDescend(p, thr) {
   const frag = document.createDocumentFragment();
   frag.appendChild(el("p", "subcopy",
-    "Coordinate descent on the worst over-threshold axis. The delivered plan's worst-axis excess is monotone non-increasing — a kept deterministic repair drops it; a worse LLM re-roll is measured and rejected. The line only ever descends."));
+    "Coordinate descent on the worst over-threshold axis. A good repair is kept; a worse re-roll is measured and rejected. So the delivered plan's worst-axis excess only ever descends."));
 
   const grid = el("div", "descend-grid");
 
@@ -1561,7 +1586,7 @@ function niceStep(raw) {
 function renderReuse(p) {
   const frag = document.createDocumentFragment();
   frag.appendChild(el("p", "subcopy",
-    "What descent learns is keyed to the task's shape, not its words. The second time Conductor-Delta sees this species it warm-starts from the cached best plan and skips cold planning — converging in a single iteration."));
+    "What descent learns is keyed to the task's shape, not its words. The second time it meets this species, it warm-starts from the cached best plan. Cold planning is skipped; it converges in one iteration."));
   const card = el("div", "card");
   const rows = el("div", "reuse-rows");
   if (p.task) {
