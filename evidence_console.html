@@ -586,29 +586,35 @@
   .ci-body b { color: var(--ink); font-weight: 620; }
   .ci-body .mono { color: var(--accent-2); }
 
-  /* F — the deterministic signature */
-  .sig { display: grid; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr)); gap: 10px; margin-top: 18px; }
-  .sigchip { position: relative; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel-2); padding: 11px 13px 12px; }
+  /* F — the deterministic signature (all possible entries per dimension) */
+  .sig { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; margin-top: 18px; }
+  .sigchip { position: relative; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel-2); padding: 11px 14px 13px; }
   .sigchip::before { content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 2px; border-radius: 2px; background: var(--accent-2); opacity: .7; }
   .sigchip.mod::before { background: var(--ink-3); opacity: .5; }
-  .sigchip .sk { display: block; font-family: var(--font-mono); font-size: 10px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 5px; }
-  .sigchip .sv { font-family: var(--font-mono); font-size: 15px; font-weight: 600; color: var(--accent-2); letter-spacing: -.01em; }
-  .sigchip.mod .sv { color: var(--ink-2); }
-  .sig-note { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); margin: 11px 0 0; letter-spacing: .02em; }
+  .sigchip .sk { display: block; font-family: var(--font-mono); font-size: 10px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 8px; }
+  .svset { display: flex; flex-wrap: wrap; gap: 5px; }
+  .svset em { font-style: normal; font-family: var(--font-mono); font-size: 11.5px; font-weight: 600; color: var(--accent-2);
+    background: color-mix(in srgb, var(--accent-2) 12%, transparent); border: 1px solid color-mix(in srgb, var(--accent-2) 24%, transparent);
+    border-radius: 5px; padding: 2px 7px; }
+  .sigchip.mod .svset em { color: var(--ink-2); background: color-mix(in srgb, var(--ink-3) 13%, transparent); border-color: var(--line-2); }
+  .sig-note { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); margin: 12px 0 0; letter-spacing: .02em; }
   .sig-note b { color: var(--ink-2); font-weight: 600; }
 
-  /* E — per-axis gap bars */
-  .egap { margin-top: 20px; }
-  .egap svg { width: 100%; height: auto; display: block; }
-  .eg-label { font-family: var(--font-mono); font-size: 13px; fill: var(--ink); }
-  .eg-track { fill: color-mix(in srgb, var(--line) 65%, transparent); }
-  .eg-bar { fill: var(--accent); }
-  .eg-bar.zero { fill: var(--good); }
-  .eg-tick { stroke: var(--ink-3); stroke-width: 1.5; stroke-dasharray: 2 3; }
-  .eg-val { font-family: var(--font-mono); font-size: 12.5px; font-weight: 600; fill: var(--accent-2); }
-  .eg-val.good { fill: var(--good); }
-  .eg-cap { font-family: var(--font-mono); font-size: 11px; fill: var(--ink-3); }
-  .eg-cap .ok { fill: var(--good); }
+  /* E — the four gap axes, mapped one-to-one onto the F dimensions they score */
+  .efmap { margin-top: 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .efgroup { display: grid; grid-template-columns: 1fr 40px auto; align-items: center; gap: 10px;
+    border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel-2); padding: 13px 15px; }
+  .fstack { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .fdimname { font-family: var(--font-mono); font-size: 12.5px; color: var(--ink-2); white-space: nowrap; }
+  .fdimname i { color: var(--ink-3); font-style: normal; }
+  .fdimname.modtag::before { content: "\25B8 "; color: var(--ink-3); }
+  .efarrow { position: relative; height: 2px; background: var(--line-2); border-radius: 2px; }
+  .efarrow::after { content: ""; position: absolute; right: -1px; top: -3px; width: 0; height: 0;
+    border: 4px solid transparent; border-left-color: var(--accent); border-right-width: 0; }
+  .eax { text-align: right; }
+  .eax .ek { font-family: var(--font-mono); font-size: 16px; font-weight: 700; color: var(--accent); letter-spacing: -.01em; }
+  .eax .esub { display: block; font-family: var(--font-mono); font-size: 9.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); margin-top: 2px; }
+  @media (max-width: 720px) { .efmap { grid-template-columns: 1fr; } }
 
   /* footer */
   footer { border-top: 1px solid var(--line); padding: 26px 0 40px; color: var(--ink-3); font-size: 12.5px; }
@@ -863,59 +869,62 @@
       <div class="ci-eyebrow">The task fingerprint &rarr; F</div>
       <p class="ci-head">Every task has a required shape, fixed before a plan is built.</p>
       <p class="ci-body">So we stop treating the task as one opaque embedding. We read it, deterministically, as an
-        <b>orthogonal signature</b> &mdash; a few independent structural dimensions, each an answer, not a number:</p>
+        <b>orthogonal signature</b> &mdash; independent structural dimensions, each with a closed set of possible values:</p>
 
       <div class="sig">
-        <div class="sigchip"><span class="sk">information flow</span><span class="sv">sequential</span></div>
-        <div class="sigchip"><span class="sk">epistemic stance</span><span class="sv">synthesis</span></div>
-        <div class="sigchip"><span class="sk">output contract</span><span class="sv">artifact</span></div>
-        <div class="sigchip"><span class="sk">decomposability</span><span class="sv">coupled</span></div>
-        <div class="sigchip mod"><span class="sk">complexity</span><span class="sv">medium</span></div>
-        <div class="sigchip mod"><span class="sk">volatility</span><span class="sv">stable</span></div>
+        <div class="sigchip"><span class="sk">information flow</span>
+          <span class="svset"><em>divergent</em><em>convergent</em><em>sequential</em><em>recursive</em></span></div>
+        <div class="sigchip"><span class="sk">epistemic stance</span>
+          <span class="svset"><em>retrieval</em><em>synthesis</em><em>generation</em><em>verification</em></span></div>
+        <div class="sigchip"><span class="sk">output contract</span>
+          <span class="svset"><em>artifact</em><em>comparison</em><em>verification</em><em>ranking</em></span></div>
+        <div class="sigchip"><span class="sk">decomposability</span>
+          <span class="svset"><em>independent</em><em>coupled</em></span></div>
+        <div class="sigchip mod"><span class="sk">complexity</span>
+          <span class="svset"><em>low</em><em>medium</em><em>high</em></span></div>
+        <div class="sigchip mod"><span class="sk">domain volatility</span>
+          <span class="svset"><em>stable</em><em>evolving</em><em>contested</em></span></div>
       </div>
       <p class="sig-note">That signature <b>is</b> F &mdash; the required flow, depth, and roles the plan must have. No LLM in the read.</p>
     </div>
 
     <div class="ci-block">
       <div class="ci-eyebrow">The fingerprint gap &rarr; E</div>
-      <p class="ci-head">How far the built plan sits from that shape.</p>
-      <p class="ci-body">Build the plan, run it, then score its distance from F on <b>four geometric axes</b>
-        &mdash; <span class="mono">partition &middot; flow &middot; role &middot; scale</span>, each in <span class="mono">[0,1]</span>.
-        Same space, so phrasing washes out: one axis, one defect, one fix that transfers to every task of the shape.</p>
+      <p class="ci-head">Four gap axes, each transcribed directly onto the signature.</p>
+      <p class="ci-body">E has its own axes &mdash; <span class="mono">partition &middot; flow &middot; role &middot; scale</span>,
+        each in <span class="mono">[0,1]</span>. They are not a new vocabulary: each one scores the gap on <b>one part of
+        F</b>. Nothing is measured that F did not first require.</p>
 
-      <div class="egap">
-        <svg viewBox="0 0 640 214" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <!-- partition -->
-          <text class="eg-label" x="112" y="38" text-anchor="end">partition</text>
-          <rect class="eg-track" x="130" y="27" width="460" height="14" rx="7"/>
-          <rect class="eg-bar" x="130" y="27" width="138" height="14" rx="7"/>
-          <line class="eg-tick" x1="452" y1="20" x2="452" y2="48"/>
-          <text class="eg-val" x="278" y="38">0.30</text>
-          <!-- flow (matches F) -->
-          <text class="eg-label" x="112" y="80" text-anchor="end">flow</text>
-          <rect class="eg-track" x="130" y="69" width="460" height="14" rx="7"/>
-          <rect class="eg-bar zero" x="130" y="69" width="7" height="14" rx="3.5"/>
-          <text class="eg-val good" x="148" y="80">0.00 &middot; matches F</text>
-          <!-- role -->
-          <text class="eg-label" x="112" y="122" text-anchor="end">role</text>
-          <rect class="eg-track" x="130" y="111" width="460" height="14" rx="7"/>
-          <rect class="eg-bar" x="130" y="111" width="101" height="14" rx="7"/>
-          <line class="eg-tick" x1="291" y1="104" x2="291" y2="132"/>
-          <text class="eg-val" x="241" y="122">0.22</text>
-          <!-- scale -->
-          <text class="eg-label" x="112" y="164" text-anchor="end">scale</text>
-          <rect class="eg-track" x="130" y="153" width="460" height="14" rx="7"/>
-          <rect class="eg-bar" x="130" y="153" width="69" height="14" rx="7"/>
-          <line class="eg-tick" x1="286" y1="146" x2="286" y2="174"/>
-          <text class="eg-val" x="209" y="164">0.15</text>
-          <!-- legend -->
-          <rect class="eg-bar" x="130" y="197" width="22" height="9" rx="4.5"/>
-          <text class="eg-cap" x="160" y="205">measured gap E</text>
-          <line class="eg-tick" x1="292" y1="193" x2="292" y2="209"/>
-          <text class="eg-cap" x="302" y="205">tolerance</text>
-          <text class="eg-cap" x="418" y="205">every axis under &rarr; <tspan class="ok">verdict good</tspan></text>
-        </svg>
+      <div class="efmap">
+        <div class="efgroup">
+          <div class="fstack"><span class="fdimname">information flow</span></div>
+          <span class="efarrow" aria-hidden="true"></span>
+          <div class="eax"><span class="ek">flow</span><span class="esub">gap axis</span></div>
+        </div>
+        <div class="efgroup">
+          <div class="fstack"><span class="fdimname">decomposability</span></div>
+          <span class="efarrow" aria-hidden="true"></span>
+          <div class="eax"><span class="ek">partition</span><span class="esub">gap axis</span></div>
+        </div>
+        <div class="efgroup">
+          <div class="fstack">
+            <span class="fdimname">epistemic stance</span>
+            <span class="fdimname">output contract</span>
+            <span class="fdimname modtag">domain volatility</span>
+          </div>
+          <span class="efarrow" aria-hidden="true"></span>
+          <div class="eax"><span class="ek">role</span><span class="esub">gap axis</span></div>
+        </div>
+        <div class="efgroup">
+          <div class="fstack">
+            <span class="fdimname">complexity</span>
+            <span class="fdimname modtag">information flow <i>(recursive)</i></span>
+          </div>
+          <span class="efarrow" aria-hidden="true"></span>
+          <div class="eax"><span class="ek">scale</span><span class="esub">gap axis</span></div>
+        </div>
       </div>
+      <p class="sig-note">Same coordinate system, so phrasing washes out: <b>one F dimension, one gap axis, one fix</b> that transfers to every task of the shape.</p>
     </div>
 
     <div class="core-payoff">
