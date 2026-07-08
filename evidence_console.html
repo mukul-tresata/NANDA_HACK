@@ -94,6 +94,9 @@
     font-family: var(--font-sans);
     font-size: 16px;
     line-height: 1.55;
+    /* Screen-share legibility bump -- scales the whole page uniformly
+       (fonts, spacing, charts) without touching individual sizes. */
+    zoom: 1.18;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
@@ -196,6 +199,65 @@
     background: var(--panel); border: 1px solid var(--line-2); color: var(--ink-2);
   }
   .axis-chip.q { border-style: dashed; }
+
+  /* ---------- problem framing: punchy pitch cards + expand-for-detail ---------- */
+  .problem-frame { padding: 10px 0 40px; display: flex; flex-direction: column; gap: 20px; }
+
+  .pitch-card { padding: 30px 32px; }
+  .pitch-card.emphasis { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset, var(--shadow); }
+  .pitch-kicker {
+    font-family: var(--font-mono); font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--accent-2); font-weight: 700; margin-bottom: 14px;
+  }
+  .pitch-headline {
+    font-size: clamp(24px, 3.4vw, 33px); line-height: 1.12; letter-spacing: -.02em; font-weight: 680;
+    color: var(--ink); margin: 0; text-wrap: balance; max-width: 26ch;
+  }
+  .pitch-punch {
+    font-size: clamp(15px, 1.8vw, 18px); line-height: 1.5; color: var(--ink-2); margin: 16px 0 0; max-width: 64ch;
+  }
+  .pitch-punch b { color: var(--ink); font-weight: 620; }
+
+  /* the "expand when I want to talk about it" dropdown */
+  details.more { margin-top: 20px; border-top: 1px solid var(--line); }
+  details.more > summary {
+    list-style: none; cursor: pointer; padding: 13px 0 0; display: inline-flex; align-items: center; gap: 8px;
+    font-family: var(--font-mono); font-size: 12px; letter-spacing: .04em; text-transform: uppercase;
+    color: var(--ink-3); font-weight: 650; user-select: none;
+  }
+  details.more > summary::-webkit-details-marker { display: none; }
+  details.more > summary::before {
+    content: "+"; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 5px;
+    border: 1px solid var(--line-2); color: var(--accent-2); font-weight: 700; font-size: 13px;
+  }
+  details.more[open] > summary::before { content: "\2212"; }
+  details.more > summary:hover { color: var(--ink-2); }
+  .more-body { padding: 14px 0 2px; }
+  .more-body p { font-size: 14.5px; line-height: 1.6; color: var(--ink-2); margin: 0 0 11px; max-width: 70ch; }
+  .more-body p:last-child { margin-bottom: 0; }
+  .more-body b { color: var(--ink); font-weight: 600; }
+
+  /* three failure-mode chips inside THE BREAK */
+  .break-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 24px; }
+  .break-card {
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 16px 16px 8px;
+  }
+  .break-name {
+    font-family: var(--font-mono); font-size: 12.5px; letter-spacing: .04em; text-transform: uppercase;
+    color: var(--bad); font-weight: 700; margin-bottom: 8px;
+  }
+  .break-line { font-size: 14px; line-height: 1.45; color: var(--ink); font-weight: 550; margin: 0; }
+  details.mini { margin-top: 10px; }
+  details.mini > summary {
+    list-style: none; cursor: pointer; font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .05em;
+    text-transform: uppercase; color: var(--ink-3); font-weight: 600; padding: 8px 0; user-select: none;
+  }
+  details.mini > summary::-webkit-details-marker { display: none; }
+  details.mini > summary::before { content: "+ "; color: var(--accent-2); font-weight: 700; }
+  details.mini[open] > summary::before { content: "\2212 "; }
+  details.mini .mini-body { font-size: 12.5px; line-height: 1.55; color: var(--ink-2); padding-bottom: 10px; }
+  details.mini .mini-body b { color: var(--ink); font-weight: 600; }
+  @media (max-width: 760px) { .break-grid { grid-template-columns: 1fr; } }
 
   /* ---------- claim nav ---------- */
   nav.claims {
@@ -359,6 +421,29 @@
   .block-copy + .block-copy { margin-top: 10px; }
   .block-copy b { color: var(--ink); font-weight: 620; }
 
+  /* the crown-jewel card: emphasized, with clear numbered-step hierarchy */
+  .arch-block.headline-block { padding: 30px 32px; }
+  .arch-block.headline-block .block-title { font-size: clamp(20px, 2.6vw, 26px); font-weight: 680; letter-spacing: -.018em; margin-bottom: 6px; }
+  .core-steps { margin: 22px 0 0; display: flex; flex-direction: column; gap: 2px; }
+  .core-step { display: grid; grid-template-columns: auto 1fr; gap: 16px; padding: 16px 0; border-top: 1px solid var(--line); }
+  .core-step:first-child { border-top: none; }
+  .core-step .n {
+    font-family: var(--font-mono); font-size: 12px; font-weight: 700; color: var(--accent-2);
+    width: 26px; height: 26px; border-radius: 7px; border: 1px solid var(--line-2);
+    display: grid; place-items: center; margin-top: 2px;
+  }
+  .core-step .sub-head { font-size: 16px; font-weight: 640; color: var(--ink); margin: 0 0 5px; letter-spacing: -.01em; }
+  .core-step .sub-body { font-size: 14px; line-height: 1.6; color: var(--ink-2); margin: 0; max-width: 70ch; }
+  .core-step .sub-body b { color: var(--ink); font-weight: 620; }
+  .core-step .sub-body .mono { color: var(--accent-2); }
+  .core-payoff {
+    margin-top: 22px; padding: 18px 20px; border-radius: var(--radius-sm);
+    background: var(--accent-wash); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  }
+  .core-payoff p { margin: 0; font-size: 14.5px; line-height: 1.55; color: var(--ink); }
+  .core-payoff p b { color: var(--accent-2); }
+  @media (max-width: 620px) { .core-step { grid-template-columns: 1fr; gap: 6px; } }
+
   .hook-card { padding: 22px 24px; border-left: 3px solid var(--accent); }
   .hook-lab { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--accent-2); font-weight: 600; }
   .hook-text { font-size: 15.5px; line-height: 1.6; color: var(--ink); margin: 10px 0 0; font-style: italic; max-width: 72ch; }
@@ -378,6 +463,40 @@
   .stepper li:last-child::after { display: none; }
   .step-title { font-size: 13.5px; font-weight: 600; color: var(--ink); }
   .step-title .mono { font-weight: 600; }
+
+  /* Flow diagram (information flow through the pipeline) — bigger, animated */
+  .flow-diagram { margin-top: 20px; }
+  .flow-diagram svg { width: 100%; height: auto; display: block; overflow: visible; }
+  .flow-node rect {
+    fill: var(--panel-2); stroke: var(--line-2); stroke-width: 1.4;
+    transition: stroke .2s;
+  }
+  .flow-node.emphasis rect { stroke: var(--accent); stroke-width: 1.8; }
+  .flow-node.store rect { fill: color-mix(in srgb, var(--ink-3) 8%, var(--panel-2)); stroke-dasharray: 4 3; }
+  .flow-node text.ttl { font-family: var(--font-mono); font-size: 14px; font-weight: 700; fill: var(--ink); letter-spacing: .02em; }
+  .flow-node text.sub { font-family: var(--font-mono); font-size: 10.5px; fill: var(--ink-3); }
+  .flow-node.emphasis text.ttl { fill: var(--accent-2); }
+  .flow-edge { stroke: var(--line-2); stroke-width: 1.8; fill: none; }
+  .flow-edge.loop { stroke: var(--accent); stroke-width: 1.8; stroke-dasharray: 5 4; }
+  .flow-edge.mem { stroke: var(--ink-3); stroke-width: 1.5; stroke-dasharray: 3 4; opacity: .7; }
+  .flow-label { font-family: var(--font-mono); font-size: 11.5px; fill: var(--ink-3); letter-spacing: .02em; }
+  .flow-label.loop { fill: var(--accent-2); font-weight: 600; }
+  /* animated packets travelling the pipeline */
+  .packet { fill: var(--accent); }
+  .packet.mem-dot { fill: var(--ink-3); }
+  @media (prefers-reduced-motion: reduce) {
+    .flow-diagram svg animateMotion { display: none; }
+    .packet { display: none; }
+  }
+  /* flow diagram caption legend */
+  .flow-legend {
+    display: flex; flex-wrap: wrap; gap: 18px; margin-top: 18px;
+    font-family: var(--font-mono); font-size: 12px; color: var(--ink-3);
+  }
+  .flow-legend .lg { display: inline-flex; align-items: center; gap: 7px; }
+  .flow-legend .swatch { width: 20px; height: 0; border-top: 2px solid var(--line-2); }
+  .flow-legend .swatch.loop { border-top: 2px dashed var(--accent); }
+  .flow-legend .swatch.mem { border-top: 2px dashed var(--ink-3); }
   .step-detail { font-size: 13px; color: var(--ink-2); margin-top: 3px; line-height: 1.5; }
   .step-tag {
     display: inline-block; margin-left: 8px; font-family: var(--font-mono); font-size: 10px; font-weight: 700;
@@ -505,22 +624,87 @@
 <section class="hero">
   <div class="wrap hero-inner">
     <div class="eyebrow">Self-improving planning + execution · deterministic descent</div>
-    <h1 class="title">The plan can only stand still or improve.</h1>
-    <p class="lede">
-      CEO-Delta derives the <b>structure a task requires</b> and measures how far the
-      realized plan deviates from it — in the <b>same coordinate system</b>. Repair
-      becomes literal coordinate descent, and a guarantee makes the delivered plan's
-      worst axis <b>monotone non-increasing</b>. Five claims, each measured, below.
-    </p>
-    <div class="basis-row">
-      <span class="basis-label">Basis</span>
-      <span class="axis-chip">partition</span>
-      <span class="axis-chip">flow</span>
-      <span class="axis-chip">role</span>
-      <span class="axis-chip">scale</span>
-      <span class="axis-chip q">groundedness</span>
-      <span class="axis-chip q">relevance</span>
+    <h1 class="title">Controlled Agent Collaboration</h1>
+  </div>
+</section>
+
+<section class="problem-frame">
+  <div class="wrap">
+
+    <!-- 01 · WHY -->
+    <div class="card pitch-card">
+      <div class="pitch-kicker">01 &middot; Why multi-agents</div>
+      <h2 class="pitch-headline">Modularity should buy reliability.</h2>
+      <p class="pitch-punch">Split a task across a retriever, a synthesizer, and a verifier &mdash; each one is easier
+        to build, test, and trust than a single monolithic prompt doing all three at once.</p>
+      <details class="more">
+        <summary>Expand</summary>
+        <div class="more-body">
+          <p>This is the same bet software engineering has always made: small, single-purpose parts are predictable
+            and debuggable in a way that one large opaque thing never is. When something fails, you know <i>which</i>
+            component failed and why.</p>
+          <p>So the promise of multi-agent systems isn't &ldquo;more agents&rdquo; &mdash; it's that decomposition
+            gives you back the reliability a single black-box LLM call throws away.</p>
+        </div>
+      </details>
     </div>
+
+    <!-- 02 · THE BREAK -->
+    <div class="card pitch-card">
+      <div class="pitch-kicker">02 &middot; What breaks</div>
+      <h2 class="pitch-headline">But the collaboration itself is ungoverned.</h2>
+      <p class="pitch-punch">Nothing defines what a correct handoff looks like, checks whether an agent stayed in its
+        lane, or predicts what the interaction will do before it has already happened. Three failure modes follow
+        directly:</p>
+      <div class="break-grid">
+        <div class="break-card">
+          <div class="break-name">Echoing</div>
+          <p class="break-line">Agents abandon their role and mirror their partner instead.</p>
+          <details class="mini"><summary>more</summary>
+            <div class="mini-body">Even after patching, a residual rate persists &mdash; and at network scale it
+              <b>compounds catastrophically</b>, not linearly. A small local rate becomes a large systemic one.</div>
+          </details>
+        </div>
+        <div class="break-card">
+          <div class="break-name">Cascade amplification</div>
+          <p class="break-line">One wrong node propagates into system-wide false consensus.</p>
+          <details class="mini"><summary>more</summary>
+            <div class="mini-body">Errors travel down the dependency graph. <b>Hub nodes</b> (high in-degree) are
+              catastrophically sensitive: one bad hub poisons everything downstream of it.</div>
+          </details>
+        </div>
+        <div class="break-card">
+          <div class="break-name">Role drift</div>
+          <p class="break-line">An agent's behavior quietly diverges from its assigned role mid-run.</p>
+          <details class="mini"><summary>more</summary>
+            <div class="mini-body">With nothing structural watching, the drift is invisible &mdash; there's no
+              mechanism to <b>detect it, let alone correct it,</b> before the answer ships.</div>
+          </details>
+        </div>
+      </div>
+    </div>
+
+    <!-- 03 · THE GAP -->
+    <div class="card pitch-card emphasis">
+      <div class="pitch-kicker">03 &middot; The gap</div>
+      <h2 class="pitch-headline">Structure the substrate, not just the agents.</h2>
+      <p class="pitch-punch">If we inject structure and predictable determinism into <b>how agents interact and spawn
+        each other</b> &mdash; not into the agents themselves &mdash; we get both worlds: the flexibility of LLM
+        agents with the reliability of an engineered system.</p>
+      <details class="more">
+        <summary>Why hasn't this been done</summary>
+        <div class="more-body">
+          <p>Almost every effort so far pushes on the <b>agents</b>: better prompts, bigger models, more elaborate
+            personas &mdash; making each individual smarter. The rest bolt on <b>post-hoc checks</b>: run the whole
+            thing, then judge the output after the damage is done.</p>
+          <p>Neither treats the <b>shape of the collaboration itself</b> &mdash; who talks to whom, in what order,
+            playing what role &mdash; as a first-class thing you can measure and govern. That's the empty lane. The
+            hard part isn't wanting structure; it's finding a representation of &ldquo;a good collaboration&rdquo;
+            that a machine can actually compute and act on. That representation is what the rest of this is.</p>
+        </div>
+      </details>
+    </div>
+
   </div>
 </section>
 
@@ -538,40 +722,167 @@
       <span class="verdict-tag ref-tag"><span class="ic">&#9670;</span>MODEL OVERVIEW</span>
     </div>
     <h2 class="headline">How CEO-Delta plans, measures, and repairs</h2>
-    <p class="subcopy">The mental model behind the five claims below — the shared coordinate system, the run pipeline, the module map, and the design decisions that separate this from an LLM in a loop.</p>
+    <p class="subcopy">The mental model behind the claims below — the shared coordinate system, the information flow, and the module map that separate this from an LLM in a loop.</p>
   </div>
 
-  <div class="card hook-card">
-    <span class="hook-lab">Say this first &middot; ~30 seconds</span>
-    <p class="hook-text">&ldquo;Most agent systems plan by asking an LLM to think harder and hoping the plan is good. There's no notion of what a good plan even is, so there's nothing to measure, nothing to improve, and nothing to reuse. CEO-Delta starts from a different place: it treats task structure as a measurable quantity. It figures out what shape a task requires, measures how far the plan it built deviates from that shape, and repairs the plan with graph surgery under a guarantee that it can never make things worse. And because the measurement lives in a structural coordinate system, what it learns on one task transfers to every task of the same shape &mdash; even ones that share not a single word.&rdquo;</p>
+  <div class="card arch-block headline-block emphasis">
+    <h3 class="block-title">The core idea: a task's required shape, and the plan's distance from it</h3>
+    <p class="block-copy">To govern a collaboration you first need to <b>measure</b> it. CEO-Delta does that with two
+      objects that live in the <b>same coordinate system</b> &mdash; four structural axes:
+      <span class="mono">partition &middot; flow &middot; role &middot; scale</span>. Read it in three steps.</p>
+
+    <div class="core-steps">
+      <div class="core-step">
+        <div class="n">1</div>
+        <div>
+          <p class="sub-head">F &mdash; the shape the task <i>requires</i></p>
+          <p class="sub-body">Before any plan is built, the task is classified into a structural <b>fingerprint</b>,
+            and from that fingerprint we derive <span class="mono">F</span> &mdash; the RequiredStructure.
+            Deterministic, no LLM. <i>&ldquo;This is a divergent retrieval task &rarr; it requires parallel gathering,
+            a synthesizer, and depth &asymp; 3.&rdquo;</i></p>
+        </div>
+      </div>
+      <div class="core-step">
+        <div class="n">2</div>
+        <div>
+          <p class="sub-head">E &mdash; how far the <i>built</i> plan sits from F</p>
+          <p class="sub-body">After the plan is built and run, we measure it on the very same four axes and take the
+            per-axis <b>distance from F</b>. That distance vector is <span class="mono">E</span> (the error tensor),
+            each axis in <span class="mono">[0,1]</span>. Low E means the plan matches the shape the task demanded.</p>
+        </div>
+      </div>
+      <div class="core-step">
+        <div class="n">3</div>
+        <div>
+          <p class="sub-head">Same axes &rarr; error becomes a direction to move</p>
+          <p class="sub-body">Because E and F share one coordinate system, the error isn't just a score &mdash; it
+            <b>points at which axis to fix</b>. That is what makes repair a literal descent: lock the worst axis,
+            fix it, re-measure. And because the axes describe <i>structure</i>, not wording, a fix learned on one
+            task applies to <b>every task of the same shape</b> &mdash; even ones sharing not a single word.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="core-payoff">
+      <p><b>Why this is the whole game:</b> &ldquo;a good collaboration&rdquo; stops being a vibe and becomes a
+        measurable coordinate. Measure it, and you can improve it, guarantee it, and reuse it.</p>
+    </div>
+
+    <details class="more">
+      <summary>Content quality &amp; the verdict</summary>
+      <div class="more-body">
+        <p>A second, content-quality tensor rides alongside the structural four &mdash;
+          <span class="mono">groundedness &middot; relevance</span> (generation-side RAGAS, computed mechanically, no
+          LLM judge). The final verdict is <b>one uniform gate</b> over all six axes: every axis under threshold
+          &rarr; good; one axis barely over &rarr; mixed; otherwise &rarr; poor.</p>
+        <p>No weighted sum collapsing the axes into a single number &mdash; that's a deliberate stance. A weighted
+          sum lets a good axis mask a bad one; keeping the vector intact means the system always knows <i>which</i>
+          thing is wrong, which is exactly what makes targeted repair possible.</p>
+      </div>
+    </details>
   </div>
 
-  <div class="card arch-block">
-    <h3 class="block-title">The one idea everything hangs on &mdash; E is the dual of F</h3>
-    <p class="block-copy">A single coordinate system, four structural axes: <span class="mono">partition &middot; flow &middot; role &middot; scale</span>.</p>
-    <p class="block-copy"><b>F (RequiredStructure)</b> &mdash; what structure the task requires, derived deterministically from the task's fingerprint. No LLM. "This is a divergent, retrieval task &rarr; it requires parallel gathering, a synthesizer, and depth &asymp; 3."</p>
-    <p class="block-copy"><b>E (EFTensor)</b> &mdash; how far the plan actually built and run deviates from F, measured per axis, each in <span class="mono">[0,1]</span>.</p>
-    <p class="block-copy">Error is measured <b>in fingerprint space</b> &mdash; E is the dual of F, same four axes. That's why improving a plan is literal coordinate descent (lock the worst axis, fix it, re-measure), and why learning transfers: error is invariant to phrasing, so a fix learned on one task applies to the whole structural class.</p>
-    <p class="block-copy">A second, content-quality tensor rides alongside &mdash; <span class="mono">groundedness &middot; relevance</span> (generation-side RAGAS, computed mechanically). The final verdict is <b>one uniform gate</b> over all six axes: every axis under threshold &rarr; good; one axis barely over &rarr; mixed; else &rarr; poor. No weighted sums collapsing axes into a single number &mdash; that's a deliberate stance, not an oversight.</p>
-  </div>
+  <div class="card arch-block headline-block">
+    <h3 class="block-title">How information flows through one run</h3>
+    <p class="block-copy">A task enters as raw text and leaves as a composed answer. In between, two loops give the
+      system its guarantees: an <b style="color:var(--accent-2)">inner repair loop</b> that descends on error, and
+      an <b>outer memory loop</b> that carries what worked forward to the next task of the same shape.</p>
+    <div class="flow-diagram">
+      <svg viewBox="0 0 1000 312" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="fa1" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--line-2)"/>
+          </marker>
+          <marker id="fa2" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/>
+          </marker>
+          <marker id="fa3" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--ink-3)"/>
+          </marker>
+        </defs>
 
-  <div class="card arch-block">
-    <h3 class="block-title">The run pipeline <span class="block-sub">Orchestrator.run(task) &mdash; one public call, twelve steps</span></h3>
-    <ol class="stepper">
-      <li data-n="1"><div class="step-title">RESEARCH.clarify()</div><div class="step-detail">Raw intent &rarr; <span class="mono">TaskFingerprint</span> (the structural species) + <span class="mono">TaskSpecifics</span> (the actual content/constraints).<span class="step-tag">CLAIM 1 &middot; CAPTURE</span></div></li>
-      <li data-n="2"><div class="step-title">compute_required()</div><div class="step-detail">&rarr; F, the RequiredStructure. Deterministic.</div></li>
-      <li data-n="3" class="loop-start"><div class="step-title">Build next plan <span class="step-tag">directive / descent loop</span></div><div class="step-detail">Iteration 0: warm-start from a cached best-plan if one exists for this species; else the CEO cold-plans the DAG. Later iterations: if the directive names a deterministic move, apply it as a pure graph transform &mdash; no LLM.<span class="step-tag">CLAIM 4 &middot; REUSE</span></div></li>
-      <li data-n="4"><div class="step-title">Structural gate</div><div class="step-detail">Force a verifier node if domain volatility requires it &mdash; a code guarantee, not a prompt suggestion.</div></li>
-      <li data-n="5"><div class="step-title">Secondary research pass</div><div class="step-detail">Iteration 0 only; won't clobber a warm-started plan.</div></li>
-      <li data-n="6"><div class="step-title">KERNEL executes the DAG</div><div class="step-detail">Flows upstream outputs into downstream nodes &rarr; <span class="mono">ExecutionTrace</span>.</div></li>
-      <li data-n="7"><div class="step-title">DELTA audits</div><div class="step-detail"><span class="mono">compute_ef()</span> &rarr; E. <span class="mono">Descent.step()</span> picks the worst axis, emits a directive, and updates the incumbent under PRESERVE.<span class="step-tag">CLAIM 3 &middot; DESCEND</span></div></li>
-      <li data-n="8" class="loop-end"><div class="step-title">Best-plan tracking</div><div class="step-detail">Mirrors the descent's own incumbent decision. Loop breaks when the directive says "surface."</div></li>
-      <li data-n="9"><div class="step-title">Persist</div><div class="step-detail">This species' trajectory + best plan write to the F-keyed store &mdash; feeds REUSE on the next task of this shape.</div></li>
-      <li data-n="10"><div class="step-title">CEO.compose()</div><div class="step-detail">One coherent answer, in a single voice, from the winning DAG's work.</div></li>
-      <li data-n="11"><div class="step-title">Q-factor</div><div class="step-detail">Groundedness + relevance on the delivered answer, folded into the final verdict.</div></li>
-      <li data-n="12"><div class="step-title">Reflection &amp; return</div><div class="step-detail">Periodic between-run reflection, persist, return <span class="mono">RunResult</span>.</div></li>
-    </ol>
-    <p class="block-copy" style="margin-top:16px"><b>The two learning loops</b> &mdash; this is what makes it a system that learns, not just a pipeline. <b>Intra-run (DESCEND)</b>: the directive loop repairs the plan within one call. <b>Cross-run (REUSE)</b>: the store remembers the best plan per structural species; the next task of that shape starts warm.</p>
+        <!-- main spine edges (each with a travelling packet) -->
+        <path id="e1" class="flow-edge" marker-end="url(#fa1)" d="M130,140 L150,140"/>
+        <path id="e2" class="flow-edge" marker-end="url(#fa1)" d="M290,140 L310,140"/>
+        <path id="e3" class="flow-edge" marker-end="url(#fa1)" d="M450,140 L470,140"/>
+        <path id="e4" class="flow-edge" marker-end="url(#fa1)" d="M610,140 L630,140"/>
+        <path id="e5" class="flow-edge" marker-end="url(#fa1)" d="M770,140 L790,140"/>
+        <path id="e6" class="flow-edge" marker-end="url(#fa1)" d="M930,140 L950,140"/>
+
+        <!-- inner repair loop: DELTA -> CEO -->
+        <path id="loopPath" class="flow-edge loop" marker-end="url(#fa2)" d="M690,112 C690,40 370,40 370,112"/>
+        <text class="flow-label loop" x="530" y="32" text-anchor="middle">inner loop &middot; repair directive, descend on worst axis</text>
+
+        <!-- outer memory loop: store <-> pipeline -->
+        <path id="memOut" class="flow-edge mem" marker-end="url(#fa3)" d="M690,168 C690,214 560,214 560,238"/>
+        <path id="memIn"  class="flow-edge mem" marker-end="url(#fa3)" d="M440,238 C440,214 370,214 370,168"/>
+        <text class="flow-label" x="530" y="306" text-anchor="middle">outer loop &middot; persist best plan &rarr; warm-start next task of this shape</text>
+
+        <!-- nodes -->
+        <g class="flow-node"><rect x="10" y="112" width="120" height="56" rx="10"/>
+          <text class="ttl" x="70" y="138" text-anchor="middle">TASK</text>
+          <text class="sub" x="70" y="155" text-anchor="middle">raw text</text></g>
+
+        <g class="flow-node"><rect x="150" y="112" width="140" height="56" rx="10"/>
+          <text class="ttl" x="220" y="138" text-anchor="middle">RESEARCH</text>
+          <text class="sub" x="220" y="155" text-anchor="middle">intent &#8594; F</text></g>
+
+        <g class="flow-node emphasis"><rect x="310" y="112" width="140" height="56" rx="10"/>
+          <text class="ttl" x="380" y="138" text-anchor="middle">CEO</text>
+          <text class="sub" x="380" y="155" text-anchor="middle">plan &#8594; DAG</text></g>
+
+        <g class="flow-node"><rect x="470" y="112" width="140" height="56" rx="10"/>
+          <text class="ttl" x="540" y="138" text-anchor="middle">KERNEL</text>
+          <text class="sub" x="540" y="155" text-anchor="middle">execute</text></g>
+
+        <g class="flow-node emphasis"><rect x="630" y="112" width="140" height="56" rx="10"/>
+          <text class="ttl" x="700" y="138" text-anchor="middle">DELTA</text>
+          <text class="sub" x="700" y="155" text-anchor="middle">measure &#8594; E</text></g>
+
+        <g class="flow-node"><rect x="790" y="112" width="140" height="56" rx="10"/>
+          <text class="ttl" x="860" y="138" text-anchor="middle">COMPOSE</text>
+          <text class="sub" x="860" y="155" text-anchor="middle">one voice</text></g>
+
+        <g class="flow-node"><rect x="950" y="112" width="42" height="56" rx="10"/>
+          <text class="ttl" x="971" y="132" text-anchor="middle" style="font-size:11px">OUT</text>
+          <text class="sub" x="971" y="150" text-anchor="middle" style="font-size:8px">answer</text></g>
+
+        <g class="flow-node store"><rect x="410" y="238" width="180" height="46" rx="10"/>
+          <text class="ttl" x="500" y="260" text-anchor="middle">F-KEYED STORE</text>
+          <text class="sub" x="500" y="275" text-anchor="middle">species &#8594; best plan</text></g>
+
+        <!-- travelling packets (data flowing through the spine) -->
+        <circle class="packet" r="3.5"><animateMotion dur="4s" begin="0s"   repeatCount="indefinite" keyPoints="0;0;1;1" keyTimes="0;0.12;0.28;1" calcMode="linear"><mpath href="#e1"/></animateMotion></circle>
+        <circle class="packet" r="3.5"><animateMotion dur="4s" begin="0.5s" repeatCount="indefinite" keyPoints="0;0;1;1" keyTimes="0;0.26;0.42;1" calcMode="linear"><mpath href="#e2"/></animateMotion></circle>
+        <circle class="packet" r="3.5"><animateMotion dur="4s" begin="1s"   repeatCount="indefinite" keyPoints="0;0;1;1" keyTimes="0;0.40;0.56;1" calcMode="linear"><mpath href="#e3"/></animateMotion></circle>
+        <circle class="packet" r="3.5"><animateMotion dur="4s" begin="1.5s" repeatCount="indefinite" keyPoints="0;0;1;1" keyTimes="0;0.54;0.70;1" calcMode="linear"><mpath href="#e4"/></animateMotion></circle>
+        <circle class="packet" r="3.5"><animateMotion dur="4s" begin="2s"   repeatCount="indefinite" keyPoints="0;0;1;1" keyTimes="0;0.68;0.84;1" calcMode="linear"><mpath href="#e5"/></animateMotion></circle>
+        <circle class="packet" r="3.5"><animateMotion dur="4s" begin="2.5s" repeatCount="indefinite" keyPoints="0;0;1;1" keyTimes="0;0.80;0.96;1" calcMode="linear"><mpath href="#e6"/></animateMotion></circle>
+        <!-- inner repair-loop pulse -->
+        <circle class="packet" r="3.5"><animateMotion dur="4s" begin="2.2s" repeatCount="indefinite"><mpath href="#loopPath"/></animateMotion></circle>
+      </svg>
+    </div>
+    <div class="flow-legend">
+      <span class="lg"><span class="swatch"></span>data flow</span>
+      <span class="lg"><span class="swatch loop"></span>inner repair loop (DESCEND)</span>
+      <span class="lg"><span class="swatch mem"></span>outer memory loop (REUSE)</span>
+    </div>
+
+    <details class="more">
+      <summary>Step-by-step</summary>
+      <div class="more-body">
+        <p><b>1&ndash;2 &middot; Classify.</b> <span class="mono">RESEARCH.clarify()</span> turns raw intent into the
+          structural fingerprint; <span class="mono">compute_required()</span> derives F. Both deterministic.</p>
+        <p><b>3&ndash;6 &middot; Plan &amp; run (inner loop).</b> The CEO builds a DAG &mdash; warm-started from the
+          store if this shape has been seen before. The KERNEL executes it; DELTA measures E, names the worst axis,
+          and either applies a deterministic graph repair or asks the CEO to replan. The delivered plan updates only
+          under <b>PRESERVE</b> &mdash; it can hold still or improve, never regress.</p>
+        <p><b>7&ndash;8 &middot; Deliver.</b> <span class="mono">CEO.compose()</span> writes one coherent answer;
+          Q-factor (groundedness, relevance) folds into the final verdict.</p>
+        <p><b>Outer loop &middot; learn.</b> The best plan for this structural species persists to the F-keyed store,
+          so the next task of the same shape starts warm instead of cold.</p>
+      </div>
+    </details>
   </div>
 
   <div class="card arch-block">
@@ -631,76 +942,6 @@
       </table></div>
     </details>
   </div>
-
-  <div class="card arch-block">
-    <h3 class="block-title">Design decisions <span class="block-sub">the &ldquo;why&rdquo; a smart CEO will probe</span></h3>
-
-    <details class="ddec"><summary><span class="drule">1. Unreduced tensor</span></summary>
-      <div class="ddec-body"><p>Never collapse axes into a scalar. A weighted sum throws away <i>which</i> thing is wrong and lets a good axis mask a bad one. Instead: gates, banding, and rule-matching on the raw vector. <b>Why:</b> the directive can target the actual failure.</p></div>
-    </details>
-    <details class="ddec"><summary><span class="drule">2. F is deterministic</span></summary>
-      <div class="ddec-body"><p>No LLM in the measurement path. F is a pure function of the fingerprint; E is topology + embedding math. <b>Why:</b> the verdict is reproducible and defensible.</p></div>
-    </details>
-    <details class="ddec"><summary><span class="drule">3. E is the dual of F (shared basis)</span></summary>
-      <div class="ddec-body"><p>The single most important choice. It's what turns repair into coordinate descent and memory into transfer. Without it, you have two unrelated representations and no leverage.</p></div>
-    </details>
-    <details class="ddec"><summary><span class="drule">4. PRESERVE &mdash; monotone incumbent, uphill rejection</span></summary>
-      <div class="ddec-body"><p>A new plan becomes the delivered plan only if its worst axis is no worse than the best so far; otherwise it's rejected and descent keeps building from the incumbent. <b>Why:</b> one bad LLM re-roll can no longer poison the run &mdash; this is the headline guarantee.</p></div>
-    </details>
-    <details class="ddec"><summary><span class="drule">5. Lexicographic incumbent &mdash; structure primary, content secondary</span></summary>
-      <div class="ddec-body"><p>On a structural tie, Q breaks it &mdash; but Q can never justify regressing structure. <b>Why:</b> prevents a pretty-but-wrong-shaped answer from winning.</p></div>
-    </details>
-    <details class="ddec"><summary><span class="drule">6. Deterministic graph operators, not &ldquo;reconsider from first principles&rdquo;</span></summary>
-      <div class="ddec-body"><p>Which edit to attempt is a table lookup; the edit itself is a pure graph transform. The LLM is one competing move, not the whole mechanism. <b>Why:</b> the repair is inspectable and repeatable &mdash; and under PRESERVE, a bad LLM move just gets rejected.</p></div>
-    </details>
-    <details class="ddec"><summary><span class="drule">7. Species as a controlled vocabulary</span></summary>
-      <div class="ddec-body"><p>The fingerprint's shape string is drawn from a tiny fixed set of axis values, so exact string match = same structural class. <b>Why:</b> clean, non-arbitrary equivalence classes &mdash; the backbone of GENERALIZE and REUSE.</p></div>
-    </details>
-    <details class="ddec"><summary><span class="drule">8. Modifier axes are not embedded</span></summary>
-      <div class="ddec-body"><p>Complexity and domain volatility drive scalar behavior (depth budget, mandatory verifier) via direct gates, never similarity. <b>Why:</b> they'd pollute the structural key if embedded.</p></div>
-    </details>
-    <details class="ddec"><summary><span class="drule">9. Structural gates as code guarantees, not prompt suggestions</span></summary>
-      <div class="ddec-body"><p>A live-data task gets a verifier node &mdash; the planner's output is checked and patched if it skipped one. <b>Why:</b> &ldquo;please verify&rdquo; in a prompt is not a guarantee; code is.</p></div>
-    </details>
-    <details class="ddec"><summary><span class="drule">10. Single-voice composition</span></summary>
-      <div class="ddec-body"><p>The winning node's raw output is not the deliverable &mdash; the CEO composes one coherent answer, and never fails on this step (falls back to the raw answer). <b>Why:</b> a coherent entity, not a pile of node outputs.</p></div>
-    </details>
-    <details class="ddec"><summary><span class="drule">11. Warm-start is initialization, not lookup</span></summary>
-      <div class="ddec-body"><p>A reused plan is a starting point the descent can still repair. <b>Why:</b> transfer without brittleness.</p></div>
-    </details>
-  </div>
-
-  <div class="card arch-block">
-    <h3 class="block-title">Borrowed vs. original <span class="block-sub">honest attribution reads as maturity</span></h3>
-    <div class="two-col">
-      <div>
-        <h4>Adopted from outside</h4>
-        <ul>
-          <li><b>Sentence embeddings</b> &mdash; all-MiniLM-L6-v2, 384-dim unit vectors. Every cosine in the system runs on this geometry.</li>
-          <li><b>LLM backend</b> &mdash; vLLM (OpenAI-compatible), Qwen-family, self-hosted; the system is model-agnostic behind it.</li>
-          <li><b>RAGAS metrics</b> &mdash; concept borrowed; the implementation is a mechanical, generation-side, de-LLM'd version.</li>
-          <li><b>Coordinate descent</b> &mdash; borrowed framing that fits because E and F share a basis.</li>
-          <li><b>Warm-starting an optimizer</b> &mdash; precisely what REUSE is.</li>
-          <li><b>Hysteresis</b> &mdash; a one-iteration grace margin after a refine, so a just-fixed axis isn't re-flagged by noise.</li>
-          <li><b>Case-based reasoning</b> &mdash; the store keeps concrete exemplars, not abstract rules.</li>
-          <li><b>Pareto dominance</b> &mdash; legacy best-plan selector on non-EF paths, superseded by PRESERVE.</li>
-          <li><b>Centrality weighting</b> &mdash; error contributions weighted by node in-degree.</li>
-          <li><b>KAIJU-inspired execution kernel</b> &mdash; the DAG execution/context-flow design draws on that lineage.</li>
-          <li><b>Grounding via web search</b> &mdash; today's retriever backend; deliberately swappable to a NANDA agent-directory backend.</li>
-        </ul>
-      </div>
-      <div>
-        <h4>Original to CEO-Delta</h4>
-        <ul class="orig">
-          <li>The <b>E-is-the-dual-of-F</b> coordinate system.</li>
-          <li>The <b>PRESERVE</b> monotone-descent guarantee.</li>
-          <li>The <b>deterministic graph-operator repertoire</b> + table-driven selection.</li>
-          <li>The <b>structural-species key</b> that gives transfer.</li>
-          <li>The <b>behavioral-band role error</b> &mdash; replacing a keyword-scan boolean with a text-derived profile against per-role bands.</li>
-        </ul>
-      </div>
-    </div>
-  </div>
 </section>
 
 <div id="claims-root"></div>
@@ -729,24 +970,6 @@ print(r.report.verdict, r.report.ef_tensor)"</div>
     <p class="block-copy">The richest live object is <span class="mono">RunResult</span> (returned by <span class="mono">Orchestrator.run()</span>): <span class="mono">answer, report.verdict, report.ef_tensor, report.q_tensor, report.required_structure, iterations, ef_trace, ef_incumbent_trace</span> (the monotone curve), <span class="mono">ef_move_log, dag.nodes</span>.</p>
   </div>
 
-  <div class="card arch-block">
-    <h3 class="block-title">Reliability, claim by claim</h3>
-    <ul class="plainlist">
-      <li><b>CAPTURE, GENERALIZE, CONVERGE</b> are deterministic or near-deterministic &mdash; safe to run live.</li>
-      <li><b>DESCEND</b> asserts only architecturally-guaranteed facts: monotone incumbent, a deterministic op fired, a worse move rejected. It does not depend on lucky convergence &mdash; the <i>magnitude</i> of improvement can vary run to run, the monotonicity cannot. Lead with the invariant, not with which operator happened to fire.</li>
-      <li><b>REUSE</b> uses a stable-domain task specifically so the cached plan is reproducible and the warm-start marker sticks.</li>
-    </ul>
-  </div>
-
-  <div class="card arch-block">
-    <h3 class="block-title">Honest limitations</h3>
-    <ul class="plainlist">
-      <li>The <b>partition</b> axis is measured from execution outputs, so on similar-format-but-distinct-content parallel branches (e.g. flight vs. hotel retrievers) it can read a false redundancy. PRESERVE contains the damage &mdash; the bad merge is rejected &mdash; but the axis itself is a known imperfection; the principled fix is measuring partition from plan-time intent embeddings.</li>
-      <li>DESCEND's deterministic operators are <b>stochastic to trigger</b> &mdash; a given cold-plan may need an LLM move or a deterministic one. The guarantee holds every run; which operator fires does not.</li>
-      <li><b>CONVERGE is N=3</b>, one mixed &mdash; illustrative of region-stability, not a statistical benchmark.</li>
-      <li><b>Grounding is a seam</b> &mdash; the retrieval backend is swappable; built for a NANDA agent-directory backend, demoed with web search.</li>
-    </ul>
-  </div>
 </section>
 
 </main>
@@ -824,18 +1047,6 @@ const SAMPLE_DATA = {
         "task": "Explain how a modern C compiler transforms C source into an executable.",
         "run1": { "verdict": "good", "iters": 1, "warm": false },
         "run2": { "verdict": "good", "iters": 1, "warm": true }
-      }
-    },
-    {
-      "id": "5_converge", "name": "CONVERGE", "passed": true,
-      "headline": "verdicts=[good,mixed,good] all in satisfying region=true",
-      "payload": {
-        "task": "Explain how a modern C compiler transforms C source into an executable.",
-        "reps": [
-          { "rep": 1, "verdict": "good",  "iters": 1, "ef": { "partition": 0.31, "flow": 0.0, "role": 0.20, "scale": 0.17 } },
-          { "rep": 2, "verdict": "mixed", "iters": 2, "ef": { "partition": 0.74, "flow": 0.0, "role": 0.29, "scale": 0.17 } },
-          { "rep": 3, "verdict": "good",  "iters": 1, "ef": { "partition": 0.28, "flow": 0.0, "role": 0.15, "scale": 0.17 } }
-        ]
       }
     }
   ]
