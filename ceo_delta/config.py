@@ -12,7 +12,7 @@ class Config:
     # To switch back to the Anthropic API: restore the ANTHROPIC BACKEND block
     # in llm.py (kept there, commented, as an exact mirror of the vLLM block)
     # and set anthropic_api_key.
-    llm_base_url: str = os.environ.get("CEO_LLM_URL", "http://10.8.0.24:8000/v1")
+    llm_base_url: str = os.environ.get("CEO_LLM_URL", "http://localhost:8000/v1")
     llm_model: str = os.environ.get("CEO_LLM_MODEL", "Qwen/Qwen3.6-35B-A3B")
     llm_max_tokens: int = 8000
     llm_timeout_s: int = 120

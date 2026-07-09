@@ -79,7 +79,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from ceo_delta.config import Config
 from ceo_delta.orchestrator import Orchestrator
-from scripts.cross_run_learning_test import run_one as _run_one
+from scripts.research.cross_run_learning_test import run_one as _run_one
 
 EASY_TASK = "Summarize the main phases of the water cycle."
 

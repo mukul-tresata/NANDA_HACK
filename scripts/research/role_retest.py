@@ -28,7 +28,7 @@ from ceo_delta.embeddings import embed
 from ceo_delta.ef import compute_required, compute_ef
 from ceo_delta.kernel import Kernel
 from ceo_delta.llm import LLMClient
-from scripts.perturbation_harness import base_dag, realize, BASE_FP, _trace_from
+from scripts.research.perturbation_harness import base_dag, realize, BASE_FP, _trace_from
 
 SYNTH_TASK = "compress and cross-reference everything into one tight synthesis; do not list raw facts"
 RETR_TASK = "retrieve and list raw individual facts and sources; do NOT summarize, compress, or combine"

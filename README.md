@@ -19,12 +19,13 @@ User → Research (parse) → CEO (plan) → Kernel (execute) → Delta (measure
 | **Engine** | `ceo_delta/` | The planner/executor/measure-repair loop (pure-Python; only `sentence-transformers` for embeddings). |
 | **Hosted service** | `service/` | A thin FastAPI wrapper exposing the engine over HTTP for agents. |
 | **Agent contract** | `SKILL.md` | How another agent calls the service — the NANDA-facing entry point. |
-| **Demo** | `evidence_console.html` | A self-contained page that renders the measured evidence for each claim. |
+| **Demo** | `demo/evidence_console.html` | A self-contained page that renders the measured evidence for each claim. |
 | **CLI** | `cli.py` | Local command-line entry point. |
 | **Tests** | `tests/` | Offline suite (stubbed LLM, no server needed). |
 | **Reproducible evidence** | `scripts/evidence.py` | (Re)generates the numbers the demo renders. |
+| **Docs** | `docs/` | `PROJECT_OVERVIEW.md` (deep dive) + `architecture.svg`. |
 
-Quick links: **[SKILL.md](SKILL.md)** (call the service) · **[service/README.md](service/README.md)** (run & deploy) · **[PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md)** (deep dive).
+Quick links: **[SKILL.md](SKILL.md)** (call the service) · **[service/README.md](service/README.md)** (run & deploy) · **[docs/PROJECT_OVERVIEW.md](docs/PROJECT_OVERVIEW.md)** (deep dive) · **[docs/architecture.svg](docs/architecture.svg)** (diagram).
 
 ## The loop
 
@@ -169,24 +170,27 @@ the agent-facing contract is **[SKILL.md](SKILL.md)**.
 python3 -u scripts/evidence.py   # (re)writes scripts/evidence_results.json
 ```
 
-Open `evidence_console.html` in a browser and drop that JSON onto the page — or
-just open it to see the embedded sample run.
+Open `demo/evidence_console.html` in a browser and drop that JSON onto the page —
+or just open it to see the embedded sample run.
 
 ## Empirical validation
 
-`scripts/perturbation_harness.py` injects known structural defects (overlapping
-sibling intents, mismatched role labels, wrong flow shape, wrong depth) at the
-assignment level — never at the metric's direct input — and measures whether the
-EF tensor recovers them. This is a non-circular check for the partition/role
-axes; flow/scale are documented as consistency checks rather than validity tests,
-since injecting them manipulates exactly the graph property the metric reads.
+`scripts/research/perturbation_harness.py` injects known structural defects
+(overlapping sibling intents, mismatched role labels, wrong flow shape, wrong
+depth) at the assignment level — never at the metric's direct input — and measures
+whether the EF tensor recovers them. This is a non-circular check for the
+partition/role axes; flow/scale are documented as consistency checks rather than
+validity tests, since injecting them manipulates exactly the graph property the
+metric reads.
 
 ```bash
-python scripts/perturbation_harness.py --trials 60   # writes perturbation_results.jsonl
+python -m scripts.research.perturbation_harness --trials 60   # writes perturbation_results.jsonl
 ```
 
-`scripts/calibrate_ef.py` and `scripts/role_retest.py` support recalibrating the
-hand-seeded thresholds in `config.py` once enough real run volume exists.
+`scripts/research/calibrate_ef.py` and `scripts/research/role_retest.py` support
+recalibrating the hand-seeded thresholds in `config.py` once enough real run
+volume exists. (`scripts/research/` holds the exploratory harnesses; the top of
+`scripts/` is just the reproducible `evidence.py`.)
 
 ## Environment variables
 
@@ -235,7 +239,14 @@ ceo_delta/
 service/            FastAPI wrapper (app, serve) + its own README
 cli.py              command-line entry point
 tests/              offline suite (stubbed LLM)
-scripts/            evidence battery, perturbation harness, EF calibration, ablation
-evidence_console.html   self-contained evidence demo page
+scripts/
+  evidence.py       reproduces the demo's measured evidence
+  research/         exploratory harnesses (perturbation, calibration, ablation, plots)
+docs/
+  PROJECT_OVERVIEW.md   architecture deep dive
+  architecture.svg      system diagram
+demo/
+  evidence_console.html self-contained evidence demo page
 SKILL.md            agent-facing contract for the hosted service
+LICENSE  ·  .env.example  ·  requirements.txt
 ```
