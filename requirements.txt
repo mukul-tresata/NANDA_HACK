@@ -3,3 +3,8 @@
 # pytest is only needed to run the test suite.
 sentence-transformers>=2.7.0
 pytest>=7.0
+
+# HTTP service layer (service/app.py, service/serve.py). Pinned to the versions
+# verified locally so the hosted build matches what was tested.
+fastapi>=0.139.0
+uvicorn>=0.50.2
