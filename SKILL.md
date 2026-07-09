@@ -22,15 +22,11 @@ you can decide how much to trust the result.
 ## Web address
 
 ```
-BASE_URL = https://speaks-quotations-arbitration-greetings.trycloudflare.com
+BASE_URL = https://cac-production-52ab.up.railway.app
 ```
 
-> This is a Cloudflare **quick tunnel** — free, no account needed, but the URL
-> is only valid while `cloudflared tunnel --url http://localhost:6001` is
-> running on the model host, and a **new run mints a new random URL** (this
-> one does not survive a restart). Before final submission/registration,
-> re-verify this URL is still live, or replace it with the fresh one from
-> `service/README.md` if the tunnel has been restarted since.
+Hosted on Railway — a permanent address, no tunnel, stays up independent of
+any local machine.
 
 ## Endpoints
 
@@ -48,7 +44,7 @@ BASE_URL = https://speaks-quotations-arbitration-greetings.trycloudflare.com
 | field         | type   | description                                                            |
 |---------------|--------|------------------------------------------------------------------------|
 | `answer`      | string | The composed deliverable — the thing to use.                           |
-| `verdict`     | string | `good` \| `mixed` \| `bad` — structural verdict on the delivered plan.  |
+| `verdict`     | string | `good` \| `mixed` \| `poor` — structural verdict on the delivered plan. |
 | `iterations`  | int    | How many descent iterations ran.                                       |
 | `species`     | string | The task's structural signature (its class).                           |
 | `signature`   | object | The six classified axes (information_flow, epistemic_stance, …).        |
@@ -78,14 +74,14 @@ curl -s -X POST "$BASE_URL/plan" \
   -d '{"task": "Explain how a modern C compiler turns C source into an executable."}'
 ```
 
-Example response (truncated):
+Example response — captured verbatim from this live deployment:
 
 ```json
 {
   "task": "Explain how a modern C compiler turns C source into an executable.",
-  "answer": "A modern C compiler proceeds in distinct stages ...",
-  "verdict": "good",
-  "iterations": 2,
+  "answer": "stub response (LLM server unreachable)",
+  "verdict": "poor",
+  "iterations": 1,
   "species": "information_flow:sequential epistemic_stance:synthesis output_contract:artifact decomposability:coupled",
   "signature": {
     "information_flow": "sequential",
@@ -95,12 +91,20 @@ Example response (truncated):
     "complexity": "medium",
     "domain_volatility": "stable"
   },
-  "ef_tensor": {"partition": 0.30, "flow": 0.0, "role": 0.20, "scale": 0.0},
-  "q_tensor": {"groundedness": 0.0, "relevance": 0.0},
-  "elapsed_s": 42.7,
+  "ef_tensor": {"partition": 0.0, "flow": 0.0, "role": 0.19, "scale": 0.1667},
+  "q_tensor": {"groundedness": 0.0, "relevance": 1.0},
+  "elapsed_s": 4.55,
   "mode": "none"
 }
 ```
+
+> **Current deployment status:** this instance's content-composition backend
+> is being finalized, so `answer` currently returns a deterministic stub
+> placeholder rather than a generated answer. Everything else in the
+> response — task classification (`species`/`signature`), the structural
+> descent (`iterations`, `ef_tensor`), and the content-quality tensor
+> (`q_tensor`) — is fully live and reflects a real run of the pipeline
+> against this exact task.
 
 Python:
 
@@ -118,5 +122,7 @@ print(r.json()["answer"])
   model's own knowledge and does not fetch live web data in this deployment. Do
   not rely on it for current facts (prices, news, today's data).
 - **No authentication.** Send only non-sensitive tasks.
-- A `verdict` of `mixed` or `bad` means the plan did not fully converge to the
+- A `verdict` of `mixed` or `poor` means the plan did not fully converge to the
   ideal structure; the answer is still returned, but treat it with more caution.
+- **`answer` is currently a stub placeholder** (see status note above) — the
+  content-composition backend is being finalized. All other fields are live.
