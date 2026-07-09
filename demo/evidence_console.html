@@ -302,6 +302,28 @@
   .panel::after { top: 58px; }
   .pitch-card::after { top: 34px; }
   @media (max-width: 980px) { .panel::before, .panel::after, .pitch-card::before, .pitch-card::after { display: none; } }
+
+  /* spine gates — the four top-level sections the deck is organized into */
+  .spine-gate { position: relative; height: 30px; margin: 10px 0 -4px; }
+  .spine-gate::before {
+    content: ""; position: absolute; left: -26px; top: 50%; width: calc(100% + 26px); height: 2px;
+    background: var(--line-2);
+  }
+  .spine-gate::after {
+    content: ""; position: absolute; left: -32px; top: 50%; transform: translateY(-50%);
+    width: 14px; height: 14px; border-radius: 50%; background: var(--accent);
+    border: 2px solid var(--accent); box-shadow: 0 0 0 5px var(--accent-wash);
+  }
+  .spine-gate-label {
+    position: absolute; left: 2px; top: 50%; transform: translateY(-50%);
+    background: var(--ground); padding: 3px 12px 3px 4px; display: flex; align-items: baseline; gap: 8px;
+  }
+  .spine-gate-no { font-family: var(--font-mono); font-size: 11px; color: var(--accent); font-weight: 700; }
+  .spine-gate-label span.txt {
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--ink); font-weight: 700;
+  }
+  @media (max-width: 980px) { .spine-gate { margin: 26px 0 6px; } .spine-gate::before, .spine-gate::after { display: none; } .spine-gate-label { position: static; padding: 0; background: none; } }
   .panel-eyebrow { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
   .claim-no { font-family: var(--font-mono); font-size: 12px; color: var(--ink-3); letter-spacing: .05em; }
   .claim-name { font-family: var(--font-mono); font-size: 12px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--accent); }
@@ -723,6 +745,8 @@
 <section id="why" class="problem-frame">
   <div class="wrap">
 
+    <div class="spine-gate"><div class="spine-gate-label"><span class="spine-gate-no">01</span><span class="txt">Why</span></div></div>
+
     <!-- 01 · WHY -->
     <div class="card pitch-card">
       <div class="pitch-split">
@@ -878,6 +902,7 @@
 
 <main class="wrap">
 
+<div class="spine-gate"><div class="spine-gate-label"><span class="spine-gate-no">02</span><span class="txt">The idea</span></div></div>
 <section id="arch" class="panel reveal">
   <div class="panel-head">
     <div class="panel-eyebrow">
@@ -966,6 +991,7 @@
 
 <div id="claims-root-early"></div>
 
+<div class="spine-gate"><div class="spine-gate-label"><span class="spine-gate-no">03</span><span class="txt">Flow</span></div></div>
 <section id="flow" class="panel reveal">
   <div class="panel-head">
     <div class="panel-eyebrow">
@@ -1142,6 +1168,7 @@
 
 <div id="claims-root-late"></div>
 
+<div class="spine-gate"><div class="spine-gate-label"><span class="spine-gate-no">04</span><span class="txt">Method</span></div></div>
 <section id="methodology" class="panel reveal">
   <div class="panel-head">
     <div class="panel-eyebrow">
