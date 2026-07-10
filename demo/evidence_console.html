@@ -355,6 +355,7 @@
 
   /* GENERALIZE — the climax */
   .gen-stage { padding: 30px 26px 26px; }
+  .gen-stack { display: flex; flex-direction: column; gap: 14px; }
   .gen-two { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 20px; }
   .gen-sent {
     background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius-sm);
@@ -383,6 +384,11 @@
 
   /* DESCEND */
   .descend-grid { display: grid; grid-template-columns: 1.35fr 1fr; gap: 16px; align-items: stretch; }
+  .descend-run-label {
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--accent-2); font-weight: 700; margin: 26px 0 10px;
+  }
+  .descend-run-label:first-child { margin-top: 4px; }
   .chart-card { padding: 20px 20px 14px; display: flex; flex-direction: column; }
   .chart-title { font-size: 12.5px; font-weight: 600; color: var(--ink-2); margin-bottom: 2px; }
   .chart-sub { font-size: 11.5px; color: var(--ink-3); margin-bottom: 8px; }
@@ -1230,14 +1236,34 @@ const SAMPLE_DATA = {
     },
     {
       "id": "2_generalize", "name": "GENERALIZE", "passed": true,
-      "headline": "cosine=0.269 (unrelated) yet same class=true",
+      "headline": "3/3 pairs collapse to one class despite unrelated wording",
       "payload": {
-        "task_a": "Explain the entire water cycle from evaporation to groundwater recharge.",
-        "task_b": "Describe how an HTTP request travels from a browser to a server and back.",
-        "text_cosine": 0.269,
-        "species_a": "information_flow:sequential epistemic_stance:synthesis output_contract:artifact decomposability:coupled",
-        "species_b": "information_flow:sequential epistemic_stance:synthesis output_contract:artifact decomposability:coupled",
-        "same_class": true
+        "examples": [
+          {
+            "task_a": "Explain the entire water cycle from evaporation to groundwater recharge.",
+            "task_b": "Describe how an HTTP request travels from a browser to a server and back.",
+            "text_cosine": 0.269,
+            "species_a": "information_flow:sequential epistemic_stance:synthesis output_contract:artifact decomposability:coupled",
+            "species_b": "information_flow:sequential epistemic_stance:synthesis output_contract:artifact decomposability:coupled",
+            "same_class": true
+          },
+          {
+            "task_a": "Explain how photosynthesis converts sunlight into chemical energy in plants.",
+            "task_b": "Describe how a garbage collector reclaims unused memory in a language runtime.",
+            "text_cosine": 0.217,
+            "species_a": "information_flow:sequential epistemic_stance:synthesis output_contract:artifact decomposability:coupled",
+            "species_b": "information_flow:sequential epistemic_stance:synthesis output_contract:artifact decomposability:coupled",
+            "same_class": true
+          },
+          {
+            "task_a": "Explain how vaccines train the immune system to recognize a pathogen.",
+            "task_b": "Describe how a CPU pipeline overlaps instruction fetch, decode, and execute.",
+            "text_cosine": 0.095,
+            "species_a": "information_flow:sequential epistemic_stance:synthesis output_contract:artifact decomposability:coupled",
+            "species_b": "information_flow:sequential epistemic_stance:synthesis output_contract:artifact decomposability:coupled",
+            "same_class": true
+          }
+        ]
       }
     },
     {
@@ -1434,21 +1460,17 @@ function renderCapture(p) {
 }
 
 /* ---------- 2 · GENERALIZE (climax) ---------- */
-function renderGeneralize(p) {
-  const frag = document.createDocumentFragment();
-  frag.appendChild(el("p", "subcopy",
-    "Two sentences, almost nothing in common on the surface. Structure-space ignores phrasing. Both collapse to one identical species."));
-
+function renderGeneralizePair(pair) {
   const card = el("div", "card gen-stage");
   const two = el("div", "gen-two");
 
   const sA = el("div", "gen-sent");
-  sA.innerHTML = `<span class="tag">Task A</span><span class="txt">${esc(p.task_a)}</span>`;
+  sA.innerHTML = `<span class="tag">Task A</span><span class="txt">${esc(pair.task_a)}</span>`;
   const sB = el("div", "gen-sent");
-  sB.innerHTML = `<span class="tag">Task B</span><span class="txt">${esc(p.task_b)}</span>`;
+  sB.innerHTML = `<span class="tag">Task B</span><span class="txt">${esc(pair.task_b)}</span>`;
 
   const gate = el("div", "cosine-gate");
-  const cos = typeof p.text_cosine === "number" ? p.text_cosine : null;
+  const cos = typeof pair.text_cosine === "number" ? pair.text_cosine : null;
   gate.appendChild(el("span", "cosine-lab", "text cosine"));
   gate.appendChild(el("span", "cosine-num", cos != null ? cos.toFixed(2) : "—"));
   const bar = el("div", "cosine-bar");
@@ -1465,9 +1487,8 @@ function renderGeneralize(p) {
   collapse.appendChild(arrow);
 
   const uni = el("div", "unified-species");
-  uni.appendChild(el("span", "u-lab", (p.same_class ? "one species" : "distinct species") + " →"));
-  const sp = parseSpecies(p.species_a);
-  AXES.forEach(() => {}); // species keys below
+  uni.appendChild(el("span", "u-lab", (pair.same_class ? "one species" : "distinct species") + " →"));
+  const sp = parseSpecies(pair.species_a);
   [["information_flow","flow"],["epistemic_stance","stance"],["output_contract","contract"],["decomposability","decomp"]]
     .forEach(([key,label]) => {
       const chip = el("span", "uchip");
@@ -1476,15 +1497,25 @@ function renderGeneralize(p) {
     });
   collapse.appendChild(uni);
   card.appendChild(collapse);
-  frag.appendChild(card);
+  return card;
+}
+
+function renderGeneralize(p) {
+  const frag = document.createDocumentFragment();
+  const examples = Array.isArray(p.examples) ? p.examples : [p]; // back-compat: old single-pair payload
+  frag.appendChild(el("p", "subcopy",
+    examples.length > 1
+      ? `${examples.length} pairs, almost nothing in common on the surface within each pair. Structure-space ignores phrasing. Every pair collapses to one identical species.`
+      : "Two sentences, almost nothing in common on the surface. Structure-space ignores phrasing. Both collapse to one identical species."));
+  const stack = el("div", "gen-stack");
+  examples.forEach(pair => stack.appendChild(renderGeneralizePair(pair)));
+  frag.appendChild(stack);
   return frag;
 }
 
 /* ---------- 3 · DESCEND (proof) ---------- */
-function renderDescend(p, thr) {
+function renderDescendRun(p, thr) {
   const frag = document.createDocumentFragment();
-  frag.appendChild(el("p", "subcopy",
-    "Coordinate descent on the worst over-threshold axis. A good repair is kept; a worse re-roll is measured and rejected. So the delivered plan's worst-axis excess only ever descends."));
 
   if (p.task) {
     const taskCard = el("div", "task-quote");
@@ -1557,6 +1588,23 @@ function renderDescend(p, thr) {
     wrap.appendChild(table);
     frag.appendChild(wrap);
   }
+  return frag;
+}
+
+function renderDescend(p, thr) {
+  const frag = document.createDocumentFragment();
+  const runs = Array.isArray(p.runs) ? p.runs : [p]; // back-compat: old single-run payload
+  frag.appendChild(el("p", "subcopy",
+    runs.length > 1
+      ? `Coordinate descent on the worst over-threshold axis, across ${runs.length} independent tasks. A good repair is kept; a worse re-roll is measured and rejected. So each delivered plan's worst-axis excess only ever descends.`
+      : "Coordinate descent on the worst over-threshold axis. A good repair is kept; a worse re-roll is measured and rejected. So the delivered plan's worst-axis excess only ever descends. One fully-traced run is shown here; the guarantee itself is proven as a property over 250 randomized trajectories in the test suite, not just this example."));
+  runs.forEach((run, i) => {
+    if (runs.length > 1) {
+      const lab = el("div", "descend-run-label", `Run ${i + 1} of ${runs.length}`);
+      frag.appendChild(lab);
+    }
+    frag.appendChild(renderDescendRun(run, thr));
+  });
   return frag;
 }
 
@@ -1662,10 +1710,7 @@ function niceStep(raw) {
 }
 
 /* ---------- 4 · REUSE ---------- */
-function renderReuse(p) {
-  const frag = document.createDocumentFragment();
-  frag.appendChild(el("p", "subcopy",
-    "What descent learns is keyed to the task's shape, not its words. The second time it meets this species, it warm-starts from the cached best plan. Cold planning is skipped; it converges in one iteration."));
+function renderReuseExample(p) {
   const card = el("div", "card");
   const rows = el("div", "reuse-rows");
   if (p.task) {
@@ -1692,7 +1737,19 @@ function renderReuse(p) {
     rows.appendChild(row);
   });
   card.appendChild(rows);
-  frag.appendChild(card);
+  return card;
+}
+
+function renderReuse(p) {
+  const frag = document.createDocumentFragment();
+  const examples = Array.isArray(p.examples) ? p.examples : [p]; // back-compat: old single-example payload
+  frag.appendChild(el("p", "subcopy",
+    examples.length > 1
+      ? "What descent learns is keyed to the task's shape, not its words. The second time it meets a species, it warm-starts from the cached best plan instead of planning cold."
+      : "What descent learns is keyed to the task's shape, not its words. The second time it meets this species, it warm-starts from the cached best plan. Cold planning is skipped; it converges in one iteration. One fully-traced task shown here."));
+  const stack = el("div", "gen-stack");
+  examples.forEach(ex => stack.appendChild(renderReuseExample(ex)));
+  frag.appendChild(stack);
   return frag;
 }
 function verdictPill(v) { return v === "good" ? "good" : v === "mixed" ? "mixed" : v === "poor" ? "poor" : ""; }
