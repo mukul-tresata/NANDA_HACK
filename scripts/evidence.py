@@ -149,12 +149,21 @@ def claim_capture_and_generalize(orch: Orchestrator) -> None:
     _claim(2, "GENERALIZE", "Pairs of tasks with almost no words in common collapse to "
                             "ONE identical structural class.")
     pairs = [
+        # sequential: linear explanatory chains, no shared vocabulary
         ("Explain the entire water cycle from evaporation to groundwater recharge.",
          "Describe how an HTTP request travels from a browser to a server and back."),
-        ("Explain how photosynthesis converts sunlight into chemical energy in plants.",
-         "Describe how a garbage collector reclaims unused memory in a language runtime."),
-        ("Explain how vaccines train the immune system to recognize a pathogen.",
-         "Describe how a CPU pipeline overlaps instruction fetch, decode, and execute."),
+        # divergent: independent-axis comparisons, different domains
+        ("Compare four popular JavaScript frameworks (React, Vue, Angular, Svelte) "
+         "on performance, learning curve, and ecosystem size.",
+         "Compare three renewable energy sources (solar, wind, hydro) on cost, "
+         "scalability, and environmental impact."),
+        # convergent: multiple independently-evaluable options synthesized into one
+        # justified recommendation (avoid framings that imply the options interact,
+        # e.g. a shared contract/budget -- that reads as coupled, not independent)
+        ("Given three laptop models, recommend the best one for a college student "
+         "and justify the tradeoffs.",
+         "Given three health insurance plans, recommend which one to choose and "
+         "justify why."),
     ]
     examples = []
     for a, b in pairs:
