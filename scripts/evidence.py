@@ -146,42 +146,52 @@ def claim_capture_and_generalize(orch: Orchestrator) -> None:
             f"{n_species} distinct species / {len(distinct)} tasks",
             {"tasks": [{"task": t, "species": s} for t, s in species.items()]})
 
-    _claim(2, "GENERALIZE", "Two tasks with almost no words in common collapse to "
+    _claim(2, "GENERALIZE", "Pairs of tasks with almost no words in common collapse to "
                             "ONE identical structural class.")
-    a = "Explain the entire water cycle from evaporation to groundwater recharge."
-    b = "Describe how an HTTP request travels from a browser to a server and back."
-    fp_a, _ = orch.research.clarify(a)
-    fp_b, _ = orch.research.clarify(b)
-    text_sim = round(float(cosine(embed(a), embed(b))), 3)
-    same_class = fp_a.shape_string() == fp_b.shape_string()
-    print("  " + _s("A  ", _CYN) + a)
-    print("  " + _s("B  ", _CYN) + b)
-    print()
-    print("  " + _s(f"{'raw text similarity':24}", _GRY) + _s(f"{text_sim}", _B)
-          + _s("   (near-unrelated wording)", _D))
-    shared = fp_a.shape_string() if same_class else f"A: {fp_a.shape_string()} / B: {fp_b.shape_string()}"
-    print("  " + _s(f"{'shared species' if same_class else 'species':24}", _GRY)
-          + (_chips(fp_a.shape_string()) if same_class else shared))
-    ok2 = same_class and text_sim < 0.6
-    _pass(ok2, f"cosine {text_sim} (unrelated) yet same structural class")
+    pairs = [
+        ("Explain the entire water cycle from evaporation to groundwater recharge.",
+         "Describe how an HTTP request travels from a browser to a server and back."),
+        ("Explain how photosynthesis converts sunlight into chemical energy in plants.",
+         "Describe how a garbage collector reclaims unused memory in a language runtime."),
+        ("Explain how vaccines train the immune system to recognize a pathogen.",
+         "Describe how a CPU pipeline overlaps instruction fetch, decode, and execute."),
+    ]
+    examples = []
+    for a, b in pairs:
+        fp_a, _ = orch.research.clarify(a)
+        fp_b, _ = orch.research.clarify(b)
+        text_sim = round(float(cosine(embed(a), embed(b))), 3)
+        same_class = fp_a.shape_string() == fp_b.shape_string()
+        print("  " + _s("A  ", _CYN) + a)
+        print("  " + _s("B  ", _CYN) + b)
+        print()
+        print("  " + _s(f"{'raw text similarity':24}", _GRY) + _s(f"{text_sim}", _B)
+              + _s("   (near-unrelated wording)", _D))
+        shared = fp_a.shape_string() if same_class else f"A: {fp_a.shape_string()} / B: {fp_b.shape_string()}"
+        print("  " + _s(f"{'shared species' if same_class else 'species':24}", _GRY)
+              + (_chips(fp_a.shape_string()) if same_class else shared))
+        print()
+        examples.append({"task_a": a, "task_b": b, "text_cosine": text_sim,
+                          "species_a": fp_a.shape_string(), "species_b": fp_b.shape_string(),
+                          "same_class": same_class})
+
+    n_ok = sum(1 for e in examples if e["same_class"] and e["text_cosine"] < 0.6)
+    ok2 = n_ok == len(examples)
+    _pass(ok2, f"{n_ok}/{len(examples)} pairs: unrelated wording yet same structural class")
     _record("2_generalize", "GENERALIZE", ok2,
-            f"cosine={text_sim} (unrelated) yet same class={same_class}",
-            f"cosine {text_sim} · same class",
-            {"task_a": a, "task_b": b, "text_cosine": text_sim,
-             "species_a": fp_a.shape_string(), "species_b": fp_b.shape_string(),
-             "same_class": same_class})
+            f"{n_ok}/{len(examples)} pairs collapse to one class despite unrelated wording",
+            f"{n_ok}/{len(examples)} pairs · same class",
+            {"examples": examples})
 
 
 # ---------------------------------------------------------------------------
 # 3 DESCEND  (monotone incumbent + repair toward the satisfying region)
 # ---------------------------------------------------------------------------
 
-def claim_descend() -> None:
-    _claim(3, "DESCEND", "The delivered plan's worst-axis error is monotone "
-                         "non-increasing — a guarantee (PRESERVE), not luck.")
-    _fresh(".evidence_descend")
-    o = Orchestrator(Config(), workdir=".evidence_descend")
-    task = "Plan a trip from Bangalore to Bangkok under 60k using current fares."
+def _descend_one(task: str, idx: int) -> dict:
+    wd = f".evidence_descend/run{idx}"
+    _fresh(wd)
+    o = Orchestrator(Config(), workdir=wd)
     r = o.run(task)
 
     # Incumbent (delivered-plan) trace only — monotone by construction. The raw
@@ -199,6 +209,7 @@ def claim_descend() -> None:
         if (not is_det) and (m.get("improved") is False):
             llm_rejected.append(m)
 
+    print("  " + _s(f"task  {task}", _CYN))
     print("  " + _s("delivered-plan worst-axis excess per iteration", _GRY)
           + _s("   (≤ 0.0 = satisfying region)", _D))
     for i, (e, w) in enumerate(zip(inc, curve)):
@@ -222,20 +233,35 @@ def claim_descend() -> None:
     else:
         print("    " + _s("(plan already satisfied on first build — nothing to repair)", _D))
     print("  " + _s(f"deterministic repairs {len(det_drops)}  ·  worse moves rejected {len(llm_rejected)}", _D))
+    print()
 
-    ok = monotone and len(curve) >= 1
-    _pass(ok, f"monotone={monotone} · worst-excess {curve[0]:+.3f} → {curve[-1]:+.3f}"
-              f" · verdict={r.report.verdict}")
+    return {"task": task, "verdict": r.report.verdict, "iterations": r.iterations,
+            "incumbent_trace": inc, "worst_excess_curve": curve,
+            "raw_trace": r.ef_trace, "move_log": r.ef_move_log,
+            "monotone": monotone, "improved": improved,
+            "deterministic_repairs": det_drops, "llm_rejected": llm_rejected}
+
+
+def claim_descend() -> None:
+    _claim(3, "DESCEND", "The delivered plan's worst-axis error is monotone "
+                         "non-increasing — a guarantee (PRESERVE), not luck.")
+    tasks = [
+        "Plan a trip from Bangalore to Bangkok under 60k using current fares.",
+        "Compare AWS, GCP, and Azure on pricing, reliability, and ease of use, "
+        "and recommend one for a startup.",
+    ]
+    runs = [_descend_one(t, i) for i, t in enumerate(tasks)]
+
+    n_monotone = sum(1 for run in runs if run["monotone"])
+    ok = n_monotone == len(runs)
+    _pass(ok, f"{n_monotone}/{len(runs)} runs monotone; "
+              + ", ".join(f"{r['worst_excess_curve'][0]:+.3f}->{r['worst_excess_curve'][-1]:+.3f}"
+                          for r in runs))
     _record("3_descend", "DESCEND", ok,
-            f"monotone={monotone}, {len(det_drops)} deterministic repair(s), "
-            f"{len(llm_rejected)} bad move(s) rejected, "
-            f"worst-excess {curve[0]:+.3f}->{curve[-1]:+.3f}",
-            f"monotone · {curve[0]:+.3f} → {curve[-1]:+.3f}",
-            {"task": task, "verdict": r.report.verdict, "iterations": r.iterations,
-             "incumbent_trace": inc, "worst_excess_curve": curve,
-             "raw_trace": r.ef_trace, "move_log": r.ef_move_log,
-             "monotone": monotone, "improved": improved,
-             "deterministic_repairs": det_drops, "llm_rejected": llm_rejected})
+            f"{n_monotone}/{len(runs)} runs monotone across "
+            f"{sum(len(r['deterministic_repairs']) for r in runs)} deterministic repair(s)",
+            f"{n_monotone}/{len(runs)} runs monotone",
+            {"runs": runs})
     _fresh(".evidence_descend")
 
 
@@ -243,17 +269,16 @@ def claim_descend() -> None:
 # 4 REUSE  (warm-start on a repeat of the SAME task)
 # ---------------------------------------------------------------------------
 
-def claim_reuse() -> None:
-    _claim(4, "REUSE", "The second time it meets a task-shape it has solved, it "
-                       "reuses the learned plan — no re-planning.")
-    _fresh(".evidence_reuse")
-    o = Orchestrator(Config(), workdir=".evidence_reuse")
-    task = "Explain how a modern C compiler transforms C source into an executable."
+def _reuse_one(task: str, idx: int) -> dict:
+    wd = f".evidence_reuse/task{idx}"
+    _fresh(wd)
+    o = Orchestrator(Config(), workdir=wd)
 
     r1 = o.run(task)
     r2 = o.run(task)
     rows = [("run 1", r1, "cold — plans from scratch, caches best plan"),
             ("run 2", r2, "warm — reuses the cached plan")]
+    print("  " + _s(f"task  {task}", _CYN))
     for label, r, note in rows:
         warm = _warmstarted(r)
         state = _s("warm", _B, _GRN) if warm else _s("cold", _D)
@@ -261,16 +286,30 @@ def claim_reuse() -> None:
         print(f"    {_s(label, _B)}   {state:>6}   verdict {r.report.verdict:5}   "
               f"{r.iterations} iter{arrow}")
         print("           " + _s(note, _D))
+    print()
+    _fresh(wd)
 
-    ok = _warmstarted(r2) and not _warmstarted(r1)
-    _pass(ok, f"run 2 warm-started, converged in {r2.iterations} iteration(s)")
+    return {"task": task,
+            "run1": {"verdict": r1.report.verdict, "iters": r1.iterations, "warm": _warmstarted(r1)},
+            "run2": {"verdict": r2.report.verdict, "iters": r2.iterations, "warm": _warmstarted(r2)}}
+
+
+def claim_reuse() -> None:
+    _claim(4, "REUSE", "The second time it meets a task-shape it has solved, it "
+                       "reuses the learned plan — no re-planning.")
+    tasks = [
+        "Explain how a modern C compiler transforms C source into an executable.",
+        "Explain how garbage collection reclaims unused memory in a language runtime.",
+    ]
+    examples = [_reuse_one(t, i) for i, t in enumerate(tasks)]
+
+    n_ok = sum(1 for e in examples if e["run2"]["warm"] and not e["run1"]["warm"])
+    ok = n_ok == len(examples)
+    _pass(ok, f"{n_ok}/{len(examples)} tasks: run 2 warm-started")
     _record("4_reuse", "REUSE", ok,
-            f"run1 cold, run2 warm={_warmstarted(r2)} iters={r2.iterations}",
-            f"run 2 warm · {r2.iterations} iter",
-            {"task": task,
-             "run1": {"verdict": r1.report.verdict, "iters": r1.iterations, "warm": _warmstarted(r1)},
-             "run2": {"verdict": r2.report.verdict, "iters": r2.iterations, "warm": _warmstarted(r2)}})
-    _fresh(".evidence_reuse")
+            f"{n_ok}/{len(examples)} tasks warm-started on repeat",
+            f"{n_ok}/{len(examples)} tasks warm on repeat",
+            {"examples": examples})
 
 
 # ---------------------------------------------------------------------------
