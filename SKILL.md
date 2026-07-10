@@ -3,126 +3,205 @@
 ## What it does
 
 CEO-Delta takes a natural-language task or question and returns a composed
-answer. Under the hood it does more than prompt an LLM: it **classifies the
-task's structure**, plans a DAG of specialized sub-agents (retriever /
-synthesizer / verifier), and runs a **deterministic coordinate descent** over
-the plan that is guaranteed to either hold the plan still or improve it —
-never make it structurally worse — before composing the final answer.
+answer. Under the hood it does more than prompt an LLM: it classifies the
+task's structure, plans a DAG of specialized sub-agents (retriever /
+synthesizer / verifier), and runs a deterministic self-correction loop over the
+plan — one that can only hold the plan still or improve it, never make it
+structurally worse — before composing the final answer. You get back the answer
+plus the task's structural signature and a verdict on how cleanly the plan
+converged, so you can judge how much to trust the result.
 
-Give it any task that benefits from being decomposed and checked: explanations,
-comparisons, rankings, multi-step syntheses. You get back the answer **plus** the
-task's structural signature and a verdict on how cleanly the plan converged, so
-you can decide how much to trust the result.
-
-- **Good for:** "explain how X works", "compare A/B/C on these axes", "given
+- **Good for:** "explain how X works", "compare A / B / C on these axes", "given
   these options, recommend one and justify it", multi-step research syntheses.
-- **Not for:** real-time data lookups (grounding is off by default in this
-  deployment — see *Limitations*), or trivial one-liners where planning is overkill.
+- **Not for:** real-time data lookups (this deployment does not fetch live web
+  data — see *Limitations*), or trivial one-liners where planning is overkill.
 
-## Web address
+## Base URL
 
 ```
 BASE_URL = https://cac-production-52ab.up.railway.app
 ```
 
-Hosted on Railway — a permanent address, no tunnel, stays up independent of
-any local machine.
+Hosted on Railway — a permanent public address, always on, no tunnel.
 
-## Endpoints
+---
 
-### `POST /plan` — plan and answer a task
+## How to call it — READ THIS FIRST: the service is asynchronous
 
-**Request body** (JSON):
+A single task runs a multi-agent pipeline that makes several LLM calls, so a
+run takes **roughly 30 seconds to 5 minutes**. To avoid any connection timing
+out while it works, the service does **not** answer in one call. Instead:
 
-| field          | type    | required | description                                                        |
-|----------------|---------|----------|--------------------------------------------------------------------|
-| `task`         | string  | yes      | The task or question to plan and answer.                           |
-| `auto_clarify` | boolean | no       | Default `true`. If `false`, a too-vague task returns a `clarification` instead of an answer. |
+> **You submit the task and get a `job_id` immediately, then poll a status URL
+> until the answer is ready. This is two steps. The first response is a ticket,
+> NOT the answer.**
 
-**Response** (JSON):
+### Step 1 — submit the task
 
-| field         | type   | description                                                            |
-|---------------|--------|------------------------------------------------------------------------|
-| `answer`      | string | The composed deliverable — the thing to use.                           |
-| `verdict`     | string | `good` \| `mixed` \| `poor` — structural verdict on the delivered plan. |
-| `iterations`  | int    | How many descent iterations ran.                                       |
-| `species`     | string | The task's structural signature (its class).                           |
-| `signature`   | object | The six classified axes (information_flow, epistemic_stance, …).        |
-| `ef_tensor`   | object | Measured structural error per axis `[partition, flow, role, scale]`.    |
-| `q_tensor`    | object | Content-quality tensor `[groundedness, relevance]` when measured.       |
-| `elapsed_s`   | number | Wall-clock seconds for the run.                                        |
-| `mode`        | string | Grounding backend in effect (`none` \| `web_search` \| `nanda`).       |
+`POST {BASE_URL}/plan` with a JSON body `{"task": "<your task>"}`.
 
-### `GET /health` — liveness
+It returns in well under a second with a job id:
 
-Returns `{"status": "ok", ...}`. Cheap; safe to poll before sending a task.
+```json
+{ "job_id": "6608f8818d4247d4", "status": "running", "poll_url": "/plan/6608f8818d4247d4" }
+```
 
-### `GET /skill.md` — this contract, served live
+### Step 2 — poll until the job is done
 
-Returns this document as plain text, so you can fetch the contract directly
-from the running service.
+`GET {BASE_URL}/plan/{job_id}` (i.e. the base URL followed by `poll_url`).
+Call it repeatedly, about **once every 5 seconds**, and read the `status` field:
 
-### `GET /docs` — interactive OpenAPI documentation
+- `status` == `"running"` → not ready yet. **Wait and poll again.**
+- `status` == `"done"` → finished. The answer is in `result.answer`, with all
+  telemetry in the rest of `result` (see the table below).
+- `status` == `"error"` → the run failed. `detail` explains why.
 
-## How to call it
+> **CRITICAL FOR AUTOMATED AGENTS — do not give up early.** A run can legitimately
+> take up to ~5 minutes, so you will see `"running"` many times before `"done"`.
+> That is normal and expected, not a failure. Keep polling. A safe policy is:
+> **poll every 5 seconds for up to 6 minutes (about 72 attempts) before treating
+> the job as failed.** Do not conclude the service is broken just because the
+> first few polls return `"running"`.
 
-Minimal working call (one POST, no auth):
+### Copy-paste example — bash
 
 ```bash
-curl -s -X POST "$BASE_URL/plan" \
+BASE_URL="https://cac-production-52ab.up.railway.app"
+
+# 1. Submit the task, capture the job_id.
+JOB=$(curl -s -X POST "$BASE_URL/plan" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "Compare Python, Rust, and Go on performance, safety, and concurrency."}' \
+  | python3 -c "import sys, json; print(json.load(sys.stdin)['job_id'])")
+
+# 2. Poll every 5s (up to ~6 min) until done, then print the answer.
+for i in $(seq 1 72); do
+  RESP=$(curl -s "$BASE_URL/plan/$JOB")
+  STATUS=$(echo "$RESP" | python3 -c "import sys, json; print(json.load(sys.stdin)['status'])")
+  if [ "$STATUS" = "done" ]; then
+    echo "$RESP" | python3 -c "import sys, json; print(json.load(sys.stdin)['result']['answer'])"
+    break
+  fi
+  if [ "$STATUS" = "error" ]; then echo "FAILED: $RESP"; break; fi
+  sleep 5
+done
+```
+
+### Copy-paste example — Python
+
+```python
+import time, requests
+
+BASE_URL = "https://cac-production-52ab.up.railway.app"
+
+# 1. Submit the task.
+job = requests.post(
+    f"{BASE_URL}/plan",
+    json={"task": "Compare Python, Rust, and Go on performance, safety, and concurrency."},
+).json()
+job_id = job["job_id"]
+
+# 2. Poll until done (every 5s, up to ~6 minutes). Keep going while "running".
+for _ in range(72):
+    r = requests.get(f"{BASE_URL}/plan/{job_id}").json()
+    if r["status"] == "done":
+        print(r["result"]["answer"])
+        break
+    if r["status"] == "error":
+        raise RuntimeError(r["detail"])
+    time.sleep(5)
+else:
+    raise TimeoutError("job did not finish within 6 minutes")
+```
+
+---
+
+## The result object
+
+When `status` is `"done"`, everything is under the `result` field:
+
+| field         | type   | description                                                              |
+|---------------|--------|--------------------------------------------------------------------------|
+| `answer`      | string | **The composed deliverable — the thing to use.**                         |
+| `verdict`     | string | `good` \| `mixed` \| `poor` — structural verdict on the delivered plan.   |
+| `iterations`  | int    | How many self-correction iterations ran.                                 |
+| `species`     | string | The task's structural signature (its class).                             |
+| `signature`   | object | The classified axes: `information_flow`, `epistemic_stance`, `output_contract`, `decomposability`, `complexity`, `domain_volatility`. |
+| `ef_tensor`   | object | Measured structural error per axis `[partition, flow, role, scale]` — lower is better. |
+| `q_tensor`    | object | Content-quality tensor `[groundedness, relevance]`.                       |
+| `clarification` | string \| null | Set (with an empty `answer`) only if the task was too vague to plan and `auto_clarify` was `false`. |
+| `elapsed_s`   | number | Wall-clock seconds the run took.                                         |
+| `mode`        | string | Grounding backend in effect (`none` here).                               |
+
+### Example — a completed poll (`GET {BASE_URL}/plan/{job_id}`)
+
+Captured from a real run of the task in the examples above:
+
+```json
+{
+  "job_id": "6608f8818d4247d4",
+  "status": "done",
+  "result": {
+    "task": "Compare Python, Rust, and Go on performance, safety, and concurrency.",
+    "answer": "Python, Rust, and Go represent three distinct philosophies in systems and application programming. While they share the goal of enabling developers to build software, they diverge ... (full multi-paragraph comparison)",
+    "verdict": "good",
+    "iterations": 1,
+    "species": "information_flow:convergent epistemic_stance:synthesis output_contract:comparison decomposability:independent",
+    "signature": {
+      "information_flow": "convergent",
+      "epistemic_stance": "synthesis",
+      "output_contract": "comparison",
+      "decomposability": "independent",
+      "complexity": "medium",
+      "domain_volatility": "evolving"
+    },
+    "ef_tensor": {"partition": 0.5683, "flow": 0.0, "role": 0.2645, "scale": 0.0},
+    "q_tensor": {"groundedness": 0.0736, "relevance": 0.26},
+    "clarification": null,
+    "elapsed_s": 276.76,
+    "mode": "none"
+  },
+  "detail": null
+}
+```
+
+### Optional request field
+
+`POST /plan` also accepts `"auto_clarify"` (boolean, default `true`). Leave it
+out for normal use. If you set it to `false`, a task too vague to classify comes
+back with a `clarification` message and an empty `answer` instead of a plan.
+
+---
+
+## Simpler one-shot alternative — `POST /plan/sync`
+
+If your client can hold a connection open for minutes and controls its own
+timeout, `POST {BASE_URL}/plan/sync` with the same `{"task": "..."}` body runs
+the pipeline and returns the **result object directly** in one blocking call —
+no `job_id`, no polling. Only use this if you can tolerate a request that stays
+open for the full run; otherwise use the async `POST /plan` + poll flow above.
+
+```bash
+curl -s -X POST "$BASE_URL/plan/sync" \
   -H "Content-Type: application/json" \
   -d '{"task": "Explain how a modern C compiler turns C source into an executable."}'
 ```
 
-Example response — captured verbatim from this live deployment:
+## Other endpoints
 
-```json
-{
-  "task": "Explain how a modern C compiler turns C source into an executable.",
-  "answer": "stub response (LLM server unreachable)",
-  "verdict": "poor",
-  "iterations": 1,
-  "species": "information_flow:sequential epistemic_stance:synthesis output_contract:artifact decomposability:coupled",
-  "signature": {
-    "information_flow": "sequential",
-    "epistemic_stance": "synthesis",
-    "output_contract": "artifact",
-    "decomposability": "coupled",
-    "complexity": "medium",
-    "domain_volatility": "stable"
-  },
-  "ef_tensor": {"partition": 0.0, "flow": 0.0, "role": 0.19, "scale": 0.1667},
-  "q_tensor": {"groundedness": 0.0, "relevance": 1.0},
-  "elapsed_s": 4.55,
-  "mode": "none"
-}
-```
-
-> **Current deployment status:** this instance's content-composition backend
-> is being finalized, so `answer` currently returns a deterministic stub
-> placeholder rather than a generated answer. Everything else in the
-> response — task classification (`species`/`signature`), the structural
-> descent (`iterations`, `ef_tensor`), and the content-quality tensor
-> (`q_tensor`) — is fully live and reflects a real run of the pipeline
-> against this exact task.
-
-Python:
-
-```python
-import requests
-r = requests.post(f"{BASE_URL}/plan", json={"task": "Compare Python, Rust, and Go on performance, safety, and concurrency."})
-print(r.json()["answer"])
-```
+- `GET /health` — liveness. Returns `{"status": "ok", ...}`. Cheap; safe to poll before submitting.
+- `GET /skill.md` — this contract, served live as plain text.
+- `GET /docs` — interactive OpenAPI documentation.
 
 ## Notes & limitations
 
-- **One task at a time.** Calls are serialized server-side; expect tens of
-  seconds per task (it runs a real multi-agent plan, not a single completion).
-- **Grounding is off by default** (`mode: "none"`): the agent reasons from the
-  model's own knowledge and does not fetch live web data in this deployment. Do
-  not rely on it for current facts (prices, news, today's data).
+- **Asynchronous by design.** Use `POST /plan` then poll `GET /plan/{job_id}`
+  (see above). Runs take ~30s–5min; keep polling until `status` is `done`.
+- **One task at a time.** Jobs are executed serially server-side, so under
+  concurrent load a job may sit in `running` a little longer before it starts.
+- **No live data / grounding is off** (`mode: "none"`): the agent reasons from
+  the model's own knowledge and does not fetch current web data. Do not rely on
+  it for prices, news, or today's facts.
 - **No authentication.** Send only non-sensitive tasks.
 - A `verdict` of `mixed` or `poor` means the plan did not fully converge to the
   ideal structure; the answer is still returned, but treat it with more caution.
-- **`answer` is currently a stub placeholder** (see status note above) — the
-  content-composition backend is being finalized. All other fields are live.
