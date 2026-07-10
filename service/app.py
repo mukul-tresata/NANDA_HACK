@@ -55,6 +55,7 @@ def _build_config() -> Config:
                         (enable once a NANDA directory endpoint is live).
       CEO_DELTA_WORKDIR           -- persistent state dir (default: .ceo_delta)
       CEO_DELTA_LLM_BASE_URL      -- override the vLLM/OpenAI-compatible base URL
+      CEO_DELTA_LLM_API_KEY       -- Bearer token for a gated LLM endpoint
       CEO_DELTA_MAX_ITER          -- cap descent iterations (default: Config's own,
                                      currently 5). Descent is monotone -- capping it
                                      lower only trades "fully converged" for "still
@@ -75,6 +76,10 @@ def _build_config() -> Config:
     base_url = os.getenv("CEO_DELTA_LLM_BASE_URL", "").strip()
     if base_url:
         overrides["llm_base_url"] = base_url
+
+    api_key = os.getenv("CEO_DELTA_LLM_API_KEY", "").strip()
+    if api_key:
+        overrides["llm_api_key"] = api_key
 
     # replace() returns a fresh Config; DEFAULT (the shared singleton) is untouched.
     return replace(DEFAULT, **overrides)

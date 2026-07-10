@@ -99,7 +99,8 @@ class LLMClient:
         req = urllib.request.Request(
             f"{self.cfg.llm_base_url}/chat/completions",
             data=body,
-            headers={"Content-Type": "application/json", "Authorization": "Bearer EMPTY"},
+            headers={"Content-Type": "application/json",
+                     "Authorization": f"Bearer {self.cfg.llm_api_key}"},
             method="POST",
         )
         with urllib.request.urlopen(req, timeout=self.cfg.llm_timeout_s) as resp:

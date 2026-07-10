@@ -14,6 +14,10 @@ class Config:
     # and set anthropic_api_key.
     llm_base_url: str = os.environ.get("CEO_LLM_URL", "http://localhost:8000/v1")
     llm_model: str = os.environ.get("CEO_LLM_MODEL", "Qwen/Qwen3.6-35B-A3B")
+    # Bearer token for the OpenAI-compatible backend. Defaults to "EMPTY" (what
+    # an unauthenticated local vLLM accepts); set to a real key for a gated
+    # endpoint. Sent as `Authorization: Bearer <key>` on every request.
+    llm_api_key: str = os.environ.get("CEO_LLM_API_KEY", "EMPTY")
     llm_max_tokens: int = 8000
     llm_timeout_s: int = 120
     llm_allow_stub: bool = True
