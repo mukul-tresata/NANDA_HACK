@@ -1,8 +1,8 @@
-# CEO-Delta — Self-Correcting Planning Agent
+# Conductor-Delta — Self-Correcting Planning Agent
 
 ## What it does
 
-CEO-Delta takes a natural-language task or question and returns a composed
+Conductor-Delta takes a natural-language task or question and returns a composed
 answer. Under the hood it does more than prompt an LLM: it classifies the
 task's structure, plans a DAG of specialized sub-agents (retriever /
 synthesizer / verifier), and runs a deterministic self-correction loop over the

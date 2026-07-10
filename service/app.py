@@ -1,4 +1,4 @@
-"""CEO-Delta as a NANDA-discoverable HTTP service.
+"""Conductor-Delta as a NANDA-discoverable HTTP service.
 
 One agent-facing endpoint -- POST /plan -- wraps `Orchestrator.run(task)` and
 returns the composed answer plus the structural signature/verdict the model
@@ -155,7 +155,7 @@ class JobStatus(BaseModel):
 # --------------------------------------------------------------------------- #
 
 app = FastAPI(
-    title="CEO-Delta Planning Agent",
+    title="Conductor-Delta Planning Agent",
     version="3.6",
     description=(
         "A self-correcting multi-agent planner. Give it a task; it classifies the "
@@ -200,7 +200,7 @@ def health() -> dict:
 @app.get("/", response_class=PlainTextResponse)
 def root() -> str:
     return (
-        "CEO-Delta planning agent.\n"
+        "Conductor-Delta planning agent.\n"
         "  POST /plan          {\"task\": \"...\"}  -> {job_id} immediately (non-blocking)\n"
         "  GET  /plan/{job_id}                    -> poll: 'running' then the full result\n"
         "  POST /plan/sync     {\"task\": \"...\"}  -> blocks, returns the result in one call\n"

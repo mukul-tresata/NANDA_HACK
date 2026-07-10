@@ -1,4 +1,4 @@
-"""CEO-Delta Architecture — a self-improving multi-agent planning/execution loop.
+"""Conductor-Delta Architecture — a self-improving multi-agent planning/execution loop.
 
 Public surface:
     from ceo_delta import Orchestrator, Config

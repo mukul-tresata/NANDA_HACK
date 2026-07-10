@@ -14,7 +14,7 @@
   <rect width="1600" height="900" fill="#FBFCFE"/>
 
   <!-- Title -->
-  <text x="800" y="46" text-anchor="middle" font-size="30" font-weight="700" fill="#111827">CEO-Delta v3.0 — EF-Driven Planning Adaptation</text>
+  <text x="800" y="46" text-anchor="middle" font-size="30" font-weight="700" fill="#111827">Conductor-Delta v3.0 — EF-Driven Planning Adaptation</text>
   <text x="800" y="74" text-anchor="middle" font-size="15" fill="#556070">the LLM generates &#183; deterministic layers judge, correct, and remember</text>
 
   <!-- ===================== GENERATIVE PLANE (LLM) ===================== -->

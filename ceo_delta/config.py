@@ -1,4 +1,4 @@
-"""Central configuration and thresholds for the CEO-Delta architecture."""
+"""Central configuration and thresholds for the Conductor-Delta architecture."""
 from __future__ import annotations
 
 import os

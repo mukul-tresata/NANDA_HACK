@@ -1,4 +1,4 @@
-"""HTTP service layer that exposes CEO-Delta to the outside world.
+"""HTTP service layer that exposes Conductor-Delta to the outside world.
 
 This package is the ONLY part of the system that depends on third-party web
 libraries (fastapi/uvicorn). The core `ceo_delta` package stays stdlib-only by

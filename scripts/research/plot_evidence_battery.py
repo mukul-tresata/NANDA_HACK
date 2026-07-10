@@ -110,7 +110,7 @@ def build_html(by_phase) -> str:
 
     esc_html = escalation_table(by_phase.get("escalation_trigger", []))
 
-    return f"""<title>CEO-Delta: evidence battery</title>
+    return f"""<title>Conductor-Delta: evidence battery</title>
 <style>
   :root {{ --surface-1: #fcfcfb; --text-primary: #0b0b0b; --text-secondary: #52514e;
            --muted: #898781; --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10); }}
@@ -143,7 +143,7 @@ def build_html(by_phase) -> str:
               border-bottom: 1px solid var(--grid); }}
   table.esc-table th {{ color: var(--text-secondary); font-weight: 600; }}
 </style>
-<h1>CEO-Delta: full evidence battery</h1>
+<h1>Conductor-Delta: full evidence battery</h1>
 <p class="sub">One session, six phases, each targeting a specific claim in the
 learning narrative. Numbers reflect the tensor of the actually-delivered
 answer (Pareto-best iteration), not a discarded intermediate attempt.</p>

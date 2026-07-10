@@ -1,7 +1,7 @@
 """evidence.py — the narrative-locking evidence battery (demo build).
 
 One focused, reproducible demonstration per headline claim about the
-CEO-Delta "brain". Prints a clean, sectioned claim -> evidence report AND
+Conductor-Delta "brain". Prints a clean, sectioned claim -> evidence report AND
 writes a machine-readable `evidence_results.json` next to it, so a UI can
 render the exact same run without re-executing the model.
 

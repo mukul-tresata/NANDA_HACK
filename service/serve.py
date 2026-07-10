@@ -1,6 +1,6 @@
 """Entrypoint: `python -m service.serve` (run from the repo root).
 
-Serves the CEO-Delta agent over HTTP. Host/port come from env so the same
+Serves the Conductor-Delta agent over HTTP. Host/port come from env so the same
 command works locally and behind a tunnel:
 
     HOST=0.0.0.0 PORT=6001 python -m service.serve

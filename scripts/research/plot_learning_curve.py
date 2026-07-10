@@ -126,7 +126,7 @@ def build_html(families, control) -> str:
                        "First-run worst-axis error (before any repair)",
                        "E excess over threshold", SERIES_COLORS_LIGHT, CONTROL_LIGHT)
 
-    return f"""<title>CEO-Delta: cross-run learning &amp; generalization</title>
+    return f"""<title>Conductor-Delta: cross-run learning &amp; generalization</title>
 <style>
   :root {{
     --surface-1: #fcfcfb; --text-primary: #0b0b0b; --text-secondary: #52514e;

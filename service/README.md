@@ -1,6 +1,6 @@
-# CEO-Delta HTTP service — run & deploy
+# Conductor-Delta HTTP service — run & deploy
 
-This is the NANDA-facing HTTP layer around the CEO-Delta planner. The core
+This is the NANDA-facing HTTP layer around the Conductor-Delta planner. The core
 `ceo_delta` package stays stdlib-only; only this `service/` package needs
 fastapi/uvicorn.
 

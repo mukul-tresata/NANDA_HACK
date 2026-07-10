@@ -1,6 +1,4 @@
-# CEO-Delta
-
-*(presented in the demo as **Conductor-Delta** — same system, friendlier name)*
+# Conductor-Delta
 
 A self-improving multi-agent system that **plans a full computation DAG before
 any execution fires**, executes it with an intent-gated kernel, then **audits
@@ -9,7 +7,7 @@ descent** — no LLM in the measurement or decision path, only in authoring
 content and (rarely) an earned structural fix.
 
 ```
-User → Research (parse) → CEO (plan) → Kernel (execute) → Delta (measure + repair) → Handbook (remember)
+User → Research (parse) → Conductor (plan) → Kernel (execute) → Delta (measure + repair) → Handbook (remember)
 ```
 
 ## What's in this repo
@@ -32,7 +30,7 @@ Quick links: **[SKILL.md](SKILL.md)** (call the service) · **[service/README.md
 | Stage | Agent | Job |
 |-------|-------|-----|
 | Parse | **Research** (`research.py`) | Stateless parser. Converts raw intent into a `TaskFingerprint` (structural species: flow/stance/contract/decomposability, embedded) plus `TaskSpecifics` (situational details, not embedded). Owns no handbook and does not learn. |
-| Plan | **CEO** (`ceo.py`) | Queries the single handbook keyed on fingerprint embedding, forces a reasoning chain, emits a DAG with separate WHY for topology and depth. Code-level gate forces a verifier node when `domain_volatility` requires one. |
+| Plan | **Conductor** (`ceo.py`) | Queries the single handbook keyed on fingerprint embedding, forces a reasoning chain, emits a DAG with separate WHY for topology and depth. Code-level gate forces a verifier node when `domain_volatility` requires one. |
 | Execute | **Kernel** (`kernel.py`) | Dependency-aware parallel dispatch + intent-gated execution. Retriever-role nodes call the grounding seam (`grounding.py`) instead of hallucinating. Emits a per-node execution trace. |
 | Measure + repair | **Delta** (`delta.py`, `ef.py`, `descent.py`) | Computes the EF error tensor, decides good/mixed/poor as a pure function of it, and runs deterministic coordinate descent to repair the worst axis. |
 | Remember | **Handbook** (`handbook.py`) | Single vector DB. Topology & depth tracked as separate vote tallies; multi-way conflicts resolved explicitly. `ef_store.py` separately persists per-fingerprint move history and irreducibility counters. |
@@ -91,7 +89,7 @@ backend nondeterminism.
 ## The four original limitations — explicitly resolved
 
 1. **Cold start** (`bootstrap.py`, `config.cold_start_runs`): handbook is seeded
-   with low-confidence synthetic entries; CEO runs exploratory for the first `N`
+   with low-confidence synthetic entries; Conductor runs exploratory for the first `N`
    runs.
 2. **Reflection trigger/budget** (`reflection.py`): fires between interactions
    on `run_count % reflection_interval == 0` **or** contested entries ≥

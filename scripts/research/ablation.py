@@ -1,11 +1,11 @@
 """ablation.py — does the ARCHITECTURE lift capability, or is it just scaffolding?
 
-Tests the hypothesis: routing a task through CEO-Delta improves the base model's
+Tests the hypothesis: routing a task through Conductor-Delta improves the base model's
 inherent reasoning beyond what a generic agentic scaffold (CoT + decompose +
 verify + best-of-k) achieves. The only comparison that supports that hypothesis
 is the RESIDUAL of the full system over a generic scaffold:
 
-    acc(4 full CEO-Delta)  −  acc(3 generic scaffold)
+    acc(4 full Conductor-Delta)  −  acc(3 generic scaffold)
 
 acc(4) > acc(1 raw) only re-proves that scaffolding helps (already known).
 acc(4) > acc(3) is the claim. Condition 5 (self-consistency / best-of-k) is the
@@ -52,7 +52,7 @@ BBH_URL = "https://raw.githubusercontent.com/suzgunmirac/BIG-Bench-Hard/main/bbh
 # Curated diverse subset: 10 genuinely different reasoning SHAPES with clean,
 # robustly-extractable answer formats (MC letter / yes-no / true-false /
 # valid-invalid / count). This is the point of BBH for us — each task is a
-# different structure, so CEO-Delta's fingerprint adaptation actually has
+# different structure, so Conductor-Delta's fingerprint adaptation actually has
 # something to adapt to (unlike homogeneous GSM8K).
 BBH_TASKS = [
     "logical_deduction_three_objects",   # MC (A/B/C)
@@ -278,7 +278,7 @@ def cond_sc(llm: LLMClient, q: str, k: int = 3):
 
 
 def cond_ceo(q: str, item_idx: int):
-    """Full CEO-Delta. Fresh per-item store so we measure CAPABILITY, not
+    """Full Conductor-Delta. Fresh per-item store so we measure CAPABILITY, not
     cross-item learning (that's a separate, deliberate experiment)."""
     wd = os.path.join(CACHE, f"ceo_wd/item_{item_idx}")
     shutil.rmtree(wd, ignore_errors=True)

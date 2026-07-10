@@ -1,4 +1,4 @@
-# CEO-Delta — Project Overview
+# Conductor-Delta — Project Overview
 
 > A self-improving multi-agent **planning + execution** engine. You give it a
 > raw task in natural language; it derives the task's *structure*, plans a DAG
@@ -15,7 +15,7 @@
 
 ## 0. The one-paragraph pitch
 
-Most agent frameworks plan by prompting an LLM and hoping. CEO-Delta separates
+Most agent frameworks plan by prompting an LLM and hoping. Conductor-Delta separates
 **what structure a task requires** (the *fingerprint* F, derived
 deterministically) from **what structure the plan actually realized** (measured
 as an error tensor E in the *same coordinate system* as F). Because E and F
@@ -118,7 +118,7 @@ raw task
 ┌── DIRECTIVE / DESCENT LOOP (max_iter) ──────────────────────────────┐
 │ [3] _next_dag(...)                   orchestrator.py                  │
 │      • iteration 0: WARM-START if a cached best_plan exists for this  │
-│        fingerprint (warmstart.py), else CEO cold-plans (ceo.py)       │
+│        fingerprint (warmstart.py), else Conductor cold-plans (ceo.py)       │
 │      • later iterations: if the directive names a DETERMINISTIC move, │
 │        apply it as a pure graph transform (graph_ops.py) — no LLM     │
 │ [4] force_verifier if volatility requires it (structural gate)        │
@@ -140,7 +140,7 @@ raw task
        to ef_store (F-keyed case memory)     ← this is what REUSE reads
   │
   ▼
-[10] CEO.compose(...)                 ceo.py
+[10] Conductor.compose(...)                 ceo.py
        one coherent answer in a single voice from the winning DAG's work
   │
   ▼
@@ -190,7 +190,7 @@ raw task
 **Planning & execution**
 - `research.py` (254) — Research agent (upstream **parser**, not a learner):
   raw intent → `(TaskFingerprint, TaskSpecifics)`. `clarify()` is CAPTURE.
-- `ceo.py` (433) — CEO planner: fingerprint → handbook query → agent
+- `ceo.py` (433) — Conductor planner: fingerprint → handbook query → agent
   resolution → full `DAG`; `replan()`, `force_verifier()`, and `compose()`
   (the single-voice deliverable).
 - `kernel.py` (203) — execution kernel: runs the DAG, flows upstream outputs
@@ -216,7 +216,7 @@ raw task
 - `warmstart.py` (74) — the **read** side of `best_plan`: reconstructs a
   runnable DAG for REUSE, gated on task-identity.
 - `handbook.py` (132) — planning handbook: topology/depth vote tallies with
-  symmetric decay; CEO's prior source.
+  symmetric decay; Conductor's prior source.
 - `escalation.py` (246) — case-based escalation: nearest precedent by weighted
   cosine over the excess-vector, role-gated; LLM fallback below floor.
 - `bootstrap.py` (173) — cold-start seeding so run 1 isn't empty.
@@ -308,7 +308,7 @@ llm_temperature        = 0.0     # deterministic by default (0.7 only in CONVERG
 
 **You are building a data-visualization front-end, not running the model.**
 
-1. **Do NOT try to run CEO-Delta.** It needs a self-hosted GPU + vLLM
+1. **Do NOT try to run Conductor-Delta.** It needs a self-hosted GPU + vLLM
    (Qwen-family) server and the `sentence-transformers` model. You almost
    certainly do not have that. You do not need it.
 2. **Build against JSON.** Two files, identical schema:
@@ -319,7 +319,7 @@ llm_temperature        = 0.0     # deterministic by default (0.7 only in CONVERG
      it in when it exists. Same shape, so nothing in your UI needs to change.
 3. **Ship a single self-contained artifact.** Prefer one HTML file with all
    CSS/JS inline and **no external network calls / CDNs** — it must render on the
-   presenter's laptop, possibly offline, in front of a CEO.
+   presenter's laptop, possibly offline, in front of a Conductor.
    **Data loading (required, so re-runs are seamless):**
    - The primary loader MUST be a **drag-and-drop zone + file-picker** for a
      local `.json`. Do **not** `fetch()` a path — an offline `file://` page is
@@ -335,7 +335,7 @@ llm_temperature        = 0.0     # deterministic by default (0.7 only in CONVERG
      show a small "SAMPLE DATA" badge.
 4. **Do not invent fields.** Render only what's in the JSON (schema in §8.2).
    If a field is missing, degrade gracefully — never crash the page.
-5. **Theme:** clean, confident, executive. This is shown to a CEO. Legible type,
+5. **Theme:** clean, confident, executive. This is shown to a Conductor. Legible type,
    generous spacing, a clear PASS/CHECK state per claim, one strong visual per
    claim (not a wall of numbers).
 

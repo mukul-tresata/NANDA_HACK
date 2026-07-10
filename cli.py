@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CLI for the CEO-Delta architecture.
+"""CLI for the Conductor-Delta architecture.
 
   python cli.py run "your task here"
   python cli.py run "task" --satisfaction 0.9     # standard run + meta signal
