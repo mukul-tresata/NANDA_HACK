@@ -18,8 +18,7 @@ def _model():
     return SentenceTransformer("all-MiniLM-L6-v2")
 
 
-def embed(text: str, dim: int | None = None) -> List[float]:
-    # dim arg kept for API compatibility — MiniLM is fixed at 384
+def embed(text: str) -> List[float]:
     vec = _model().encode(text or "", normalize_embeddings=True)
     return vec.tolist()
 

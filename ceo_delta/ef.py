@@ -201,7 +201,18 @@ def _role_error(dag, trace, weights, bands, required_roles: Set[str]) -> Tuple[f
 
 def _scale_error(sig: Dict, req: RequiredStructure) -> float:
     """Structural magnitude vs complexity-implied depth budget. Overage
-    penalized hard, underage mildly. Pure graph."""
+    penalized hard, underage mildly. Pure graph.
+
+    The asymmetry is deliberate, not an oversight: a plan that is one level
+    shallower than target is treated as half as bad as one level deeper,
+    because under-decomposing is the cheaper failure mode (fewer nodes, less
+    coordination surface) and a shallow plan can still satisfy the task even
+    if it doesn't fully exploit the target depth. One consequence to be aware
+    of: on a target_depth=2 task, one level of underage yields error 0.25,
+    which sits under ef_scale_threshold (0.34) and so never fires -- shallow
+    plans against a depth-2 target are effectively unenforced on this axis.
+    That's accepted, not hidden.
+    """
     target = req.target_depth or 1
     realized = sig["depth"]
     if realized > target:

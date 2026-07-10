@@ -193,6 +193,8 @@ ROLE_BANDS = {
         "cite": (0.0, None),
         "comp": (0.0, None),
         "struct": (0.0, None),
-        "_weights": {"cite": 0.0, "comp": 0.0, "struct": 0.0},  # no-op band
+        "_weights": {"cite": 0.0, "comp": 0.0, "struct": 0.0},  # no-op band --
+        # zeroes all three excess terms in role_features.role_error, so an
+        # unclassified role is never penalized on role error.
     },
 }

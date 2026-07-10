@@ -110,6 +110,9 @@ def role_error(
         "comp": _excess(f_comp, role_bands["comp"]),
         "struct": _excess(f_struct, role_bands["struct"]),
     }
+    # A band's optional "_weights" zeroes out specific excess terms before
+    # summing -- see ROLE_BANDS["generic"] in config.py, which sets all three
+    # to 0.0 so an unclassified role never contributes role error.
     weights = role_bands.get("_weights", {"cite": 1.0, "comp": 1.0, "struct": 1.0})
     err = sum(excess[k] * weights.get(k, 1.0) for k in excess)
     return err, excess

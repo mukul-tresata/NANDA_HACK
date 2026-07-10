@@ -12,12 +12,15 @@ comment out the VLLM BACKEND block, and set config.anthropic_api_key.
 from __future__ import annotations
 
 import json
+import logging
 import re
 import urllib.error
 import urllib.request
 # import anthropic             # ANTHROPIC BACKEND
 from typing import Any, Dict, List, Optional
 from .config import Config, DEFAULT
+
+logger = logging.getLogger(__name__)
 
 
 class LLMError(RuntimeError):
@@ -57,7 +60,7 @@ class LLMClient:
             response = self._chat_remote(messages, max_tokens, temperature)
         except (urllib.error.URLError, urllib.error.HTTPError, LLMError, TimeoutError, OSError) as e:  # VLLM BACKEND
         # except Exception as e:  # ANTHROPIC BACKEND
-            print("DEBUG ERROR:", type(e).__name__, str(e))
+            logger.debug("LLM call failed (%s): %s", type(e).__name__, e)
             if self.cfg.llm_allow_stub:
                 response = self._chat_stub(messages)
                 stub_used = True
