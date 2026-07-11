@@ -81,6 +81,10 @@ def _build_config() -> Config:
     if api_key:
         overrides["llm_api_key"] = api_key
 
+    thinking_kwarg = os.getenv("CEO_DELTA_LLM_SEND_THINKING_KWARG", "").strip().lower()
+    if thinking_kwarg:
+        overrides["llm_send_thinking_kwarg"] = thinking_kwarg != "false"
+
     # replace() returns a fresh Config; DEFAULT (the shared singleton) is untouched.
     return replace(DEFAULT, **overrides)
 

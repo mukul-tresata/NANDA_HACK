@@ -93,18 +93,41 @@ class LLMClient:
             # reproducible run-to-run -- the backbone of every learning claim.
             "temperature": self.cfg.llm_temperature if temperature is None else temperature,
             "messages": messages,
-            "chat_template_kwargs": {"enable_thinking": False},
         }
+        # vLLM-only field; OpenAI/Groq reject unknown properties (see config).
+        if self.cfg.llm_send_thinking_kwarg:
+            payload["chat_template_kwargs"] = {"enable_thinking": False}
         body = json.dumps(payload).encode()
         req = urllib.request.Request(
             f"{self.cfg.llm_base_url}/chat/completions",
             data=body,
             headers={"Content-Type": "application/json",
-                     "Authorization": f"Bearer {self.cfg.llm_api_key}"},
+                     "Authorization": f"Bearer {self.cfg.llm_api_key}",
+                     # some hosted backends (Groq/Cloudflare) 403 the default
+                     # Python-urllib User-Agent as a bot; send an explicit one.
+                     "User-Agent": "conductor-delta/3.6"},
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=self.cfg.llm_timeout_s) as resp:
-            data = json.loads(resp.read().decode())
+        import time as _time
+        data = None
+        for attempt in range(self.cfg.llm_max_retries + 1):
+            try:
+                with urllib.request.urlopen(req, timeout=self.cfg.llm_timeout_s) as resp:
+                    data = json.loads(resp.read().decode())
+                break
+            except urllib.error.HTTPError as e:
+                # 429 = rate limited: honour retry-after (capped) and try again.
+                if e.code == 429 and attempt < self.cfg.llm_max_retries:
+                    ra = (e.headers.get("retry-after") or "").strip()
+                    wait = float(ra) if ra.replace(".", "", 1).isdigit() else min(2 ** attempt, 30)
+                    wait = min(wait, self.cfg.llm_retry_max_wait_s)
+                    logger.debug("429 rate-limited; backing off %.1fs (attempt %d/%d)",
+                                 wait, attempt + 1, self.cfg.llm_max_retries)
+                    _time.sleep(wait)
+                    continue
+                raise
+        if data is None:
+            raise LLMError("rate-limited: retries exhausted")
         usage = data.get("usage") or {}
         self.total_tokens += int(usage.get("prompt_tokens", 0)) + int(usage.get("completion_tokens", 0))
         content = data["choices"][0]["message"]["content"]  # OpenAI format

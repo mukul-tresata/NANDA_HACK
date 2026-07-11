@@ -18,6 +18,16 @@ class Config:
     # an unauthenticated local vLLM accepts); set to a real key for a gated
     # endpoint. Sent as `Authorization: Bearer <key>` on every request.
     llm_api_key: str = os.environ.get("CEO_LLM_API_KEY", "EMPTY")
+    # vLLM-specific extension that suppresses a reasoning model's hidden <think>
+    # tokens (needed for Qwen; harmless waste otherwise). Strictly OpenAI/Groq
+    # reject unknown fields, so set false ("CEO_LLM_SEND_THINKING_KWARG=false")
+    # for those backends. Default true preserves the vLLM behaviour.
+    llm_send_thinking_kwarg: bool = os.environ.get("CEO_LLM_SEND_THINKING_KWARG", "true").strip().lower() != "false"
+    # Retry budget for HTTP 429 (rate limits). Free hosted tiers (Groq) cap
+    # tokens-per-minute; a multi-call run can trip it, so back off on the
+    # `retry-after` the server sends and try again instead of stubbing.
+    llm_max_retries: int = int(os.environ.get("CEO_LLM_MAX_RETRIES", "4"))
+    llm_retry_max_wait_s: float = 65.0   # cap on a single back-off wait
     llm_max_tokens: int = 8000
     llm_timeout_s: int = 120
     llm_allow_stub: bool = True
